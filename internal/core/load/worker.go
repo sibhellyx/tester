@@ -3,11 +3,13 @@ package load
 import (
 	"context"
 	"sync"
+
+	"github.com/sibhellyx/tester/internal/models"
 )
 
 // RequestGenerator - интерфейс генератора, предоставляет метод для получения следующего для выполения запроса.
 type RequestGenerator interface {
-	Next() *TestRequest // Возвращаетс следующий запрос или nil.
+	Next() *models.TestRequest // Возвращаетс следующий запрос или nil.
 }
 
 // RunVirtualUser - функция запускающая
@@ -15,7 +17,7 @@ func RunVirtualUser(
 	ctx context.Context,
 	attacker *Attacker,
 	generator RequestGenerator,
-	results chan<- CallResult,
+	results chan<- models.CallResult,
 	wg *sync.WaitGroup,
 ) {
 	// Закрываем waitgroup.

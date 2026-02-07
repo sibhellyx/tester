@@ -6,29 +6,9 @@ import (
 	"io"
 	"net/http"
 	"time"
+
+	"github.com/sibhellyx/tester/internal/models"
 )
-
-// TestRequest - структура описывающая запрос, который необходимо выполнить.
-type TestRequest struct {
-	Name                string            `json:"name"`           // "Login", "GetUsers".
-	Method              string            `json:"method"`         // GET, POST, PUT, DELETE.
-	Path                string            `json:"endpoint"`       // "/api/v1/users".
-	Headers             map[string]string `json:"headers"`        // "Content-Type": "application/json".
-	Body                string            `json:"body"`           // JSON payload.
-	Weight              int               `json:"probability"`    // Вероятность выполнения (в %).
-	ExpectedStatusCodes []int             `json:"expected_codes"` // [401, 404] Ожидаемые коды.
-}
-
-// CallResult - Результат одного конкретного запроса.
-type CallResult struct {
-	RequestName string        `json:"request_name"` // Название выполненного запроса.
-	Timestamp   time.Time     `json:"timestamp"`    // Время начала запроса.
-	Duration    time.Duration `json:"duration"`     // Сколько длился запрос (Latency).
-	Status      int           `json:"status"`       // HTTP код (200, 500, etc).
-	Error       string        `json:"error"`        // Текст ошибки (если статус 0 или сетевая ошибка).
-	BytesOut    int64         `json:"bytes_out"`    // Размер отправленных данных (для подсчета пропускной способности).
-	BytesIn     int64         `json:"bytes_in"`     // Размер полученных данных.
-}
 
 // Attacker - структура, которая обеспечивает выполнение действия(нагрузки).
 // Данная структура будет обеспечивать выполнение запроса, по заданным критериям.
@@ -55,7 +35,7 @@ func NewAttacker(timeout time.Duration) *Attacker {
 }
 
 // Shoot - функция выполняющая запрос.
-func (a *Attacker) Shoot(requestModel TestRequest) CallResult {
+func (a *Attacker) Shoot(requestModel models.TestRequest) models.CallResult {
 	// Подготовка к выполнению запроса.
 	// Подготовка тела запроса(при наличии) и подсчет отправленных данных.
 	// Reader для создания request.
@@ -71,7 +51,7 @@ func (a *Attacker) Shoot(requestModel TestRequest) CallResult {
 	// Создание http.Request.
 	request, err := http.NewRequest(requestModel.Method, requestModel.Path, body)
 	if err != nil {
-		return CallResult{
+		return models.CallResult{
 			Status: 0,
 			Error:  "invalid request: " + err.Error(),
 		}
@@ -93,7 +73,7 @@ func (a *Attacker) Shoot(requestModel TestRequest) CallResult {
 	// Итоговое время выполнения запроса.
 	duration := time.Since(start)
 	// Подготовка результата выполнения запроса.
-	result := CallResult{
+	result := models.CallResult{
 		Timestamp:   start,
 		Duration:    duration,
 		RequestName: requestModel.Name,

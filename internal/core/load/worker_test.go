@@ -7,13 +7,15 @@ import (
 	"sync"
 	"testing"
 	"time"
+
+	"github.com/sibhellyx/tester/internal/models"
 )
 
 type MockGenerator struct {
-	req *TestRequest
+	req *models.TestRequest
 }
 
-func (m *MockGenerator) Next() *TestRequest {
+func (m *MockGenerator) Next() *models.TestRequest {
 	return m.req
 }
 
@@ -29,14 +31,14 @@ func TestRunVirtualUser(t *testing.T) {
 	// Проверка механики цикла и остановки.
 	attacker := NewAttacker(10 * time.Millisecond)
 
-	req := &TestRequest{
+	req := &models.TestRequest{
 		Method: "GET",
 		Path:   server.URL,
 	}
 	gen := &MockGenerator{req: req}
 
 	// Буферизированный канал для записи результатов.
-	results := make(chan CallResult, 1000)
+	results := make(chan models.CallResult, 1000)
 	var wg sync.WaitGroup
 
 	// Запуск воркера.

@@ -4,19 +4,21 @@ import (
 	"fmt"
 	"math/rand/v2"
 	"sync"
+
+	"github.com/sibhellyx/tester/internal/models"
 )
 
 // WeightedGenerator реализует выбор запроса на основе вероятностей (весов).
 type WeightedGenerator struct {
-	requests          []TestRequest // Запросы для выполнения.
-	cumulativeWeights []int         // Накопительные веса для быстрого выбора.
-	totalWeight       int           // Общая сумма весов.
-	mu                sync.Mutex    // Для защиты генератора случайных чисел.
-	randomGenerator   *rand.Rand    // Локальный генератор.
+	requests          []models.TestRequest // Запросы для выполнения.
+	cumulativeWeights []int                // Накопительные веса для быстрого выбора.
+	totalWeight       int                  // Общая сумма весов.
+	mu                sync.Mutex           // Для защиты генератора случайных чисел.
+	randomGenerator   *rand.Rand           // Локальный генератор.
 }
 
 // NewWeightedGenerator создает генератор с валидацией и нормализацией весов.
-func NewWeightedGenerator(requests []TestRequest) (*WeightedGenerator, error) {
+func NewWeightedGenerator(requests []models.TestRequest) (*WeightedGenerator, error) {
 	if len(requests) == 0 {
 		return nil, fmt.Errorf("requests list cannot be empty")
 	}
@@ -54,7 +56,7 @@ func NewWeightedGenerator(requests []TestRequest) (*WeightedGenerator, error) {
 
 // Next возвращает следующий запрос на основе весов (вероятностей).
 // Использует алгоритм взвешенного случайного выбора.
-func (g *WeightedGenerator) Next() *TestRequest {
+func (g *WeightedGenerator) Next() *models.TestRequest {
 	g.mu.Lock()
 	defer g.mu.Unlock()
 

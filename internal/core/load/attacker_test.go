@@ -6,6 +6,8 @@ import (
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/sibhellyx/tester/internal/models"
 )
 
 // TestAttacker_Shoot_Success проверяет успешный сценарий:
@@ -22,7 +24,7 @@ func TestAttacker_Shoot_Success(t *testing.T) {
 
 	attacker := NewAttacker(1 * time.Second)
 
-	reqModel := TestRequest{
+	reqModel := models.TestRequest{
 		Name:   "Ping Check",
 		Method: "GET",
 		Path:   server.URL, // Используем URL тестового сервера.
@@ -68,7 +70,7 @@ func TestAttacker_Shoot_BytesOutLogic(t *testing.T) {
 	headerKey := "X-Test"
 	headerVal := "Value" // len("X-Test") + len("Value") + 4 = 6 + 5 + 4 = 15 байт.
 
-	reqModel := TestRequest{
+	reqModel := models.TestRequest{
 		Method: method,
 		Path:   server.URL,
 		Headers: map[string]string{
@@ -127,7 +129,7 @@ func TestAttacker_Shoot_DefaultValidation(t *testing.T) {
 			}))
 			defer server.Close()
 
-			req := TestRequest{Method: "GET", Path: server.URL}
+			req := models.TestRequest{Method: "GET", Path: server.URL}
 			result := attacker.Shoot(req)
 
 			if tt.shouldBeError {
@@ -154,7 +156,7 @@ func TestAttacker_Shoot_CustomValidation(t *testing.T) {
 		}))
 		defer server.Close()
 
-		req := TestRequest{
+		req := models.TestRequest{
 			Method:              "GET",
 			Path:                server.URL,
 			ExpectedStatusCodes: []int{404},
@@ -176,7 +178,7 @@ func TestAttacker_Shoot_CustomValidation(t *testing.T) {
 		}))
 		defer server.Close()
 
-		req := TestRequest{
+		req := models.TestRequest{
 			Method:              "GET",
 			Path:                server.URL,
 			ExpectedStatusCodes: []int{200},
@@ -195,7 +197,7 @@ func TestAttacker_Shoot_CustomValidation(t *testing.T) {
 		}))
 		defer server.Close()
 
-		req := TestRequest{
+		req := models.TestRequest{
 			Method:              "POST",
 			Path:                server.URL,
 			ExpectedStatusCodes: []int{201},
@@ -220,7 +222,7 @@ func TestAttacker_Shoot_Timeout(t *testing.T) {
 	// Attacker с таймаутом всего 10мс.
 	attacker := NewAttacker(10 * time.Millisecond)
 
-	req := TestRequest{Method: "GET", Path: server.URL}
+	req := models.TestRequest{Method: "GET", Path: server.URL}
 	result := attacker.Shoot(req)
 
 	if result.Status != 0 {
@@ -243,7 +245,7 @@ func TestAttacker_Shoot_InvalidRequest(t *testing.T) {
 
 	attacker := NewAttacker(1 * time.Second)
 	// Неккоректный метод запроса.
-	req := TestRequest{
+	req := models.TestRequest{
 		Method: "GET/ERROR",
 		Path:   server.URL,
 	}

@@ -6,11 +6,13 @@ import (
 	"strings"
 	"sync"
 	"testing"
+
+	"github.com/sibhellyx/tester/internal/models"
 )
 
 // TestNewWeightedGenerator_Success проверяет успешное создание генератора.
 func TestNewWeightedGenerator_Success(t *testing.T) {
-	requests := []TestRequest{
+	requests := []models.TestRequest{
 		{Name: "Login", Weight: 50},
 		{Name: "GetUsers", Weight: 30},
 		{Name: "CreateOrder", Weight: 20},
@@ -40,7 +42,7 @@ func TestNewWeightedGenerator_Success(t *testing.T) {
 
 // TestNewWeightedGenerator_EmptyRequests проверяет ошибку при пустом списке запросов.
 func TestNewWeightedGenerator_EmptyRequests(t *testing.T) {
-	requests := []TestRequest{}
+	requests := []models.TestRequest{}
 
 	gen, err := NewWeightedGenerator(requests)
 
@@ -59,7 +61,7 @@ func TestNewWeightedGenerator_EmptyRequests(t *testing.T) {
 
 // TestNewWeightedGenerator_NegativeWeight проверяет ошибку при отрицательном весе.
 func TestNewWeightedGenerator_NegativeWeight(t *testing.T) {
-	requests := []TestRequest{
+	requests := []models.TestRequest{
 		{Name: "Request1", Weight: 50},
 		{Name: "BadRequest", Weight: -10},
 		{Name: "Request2", Weight: 60},
@@ -86,7 +88,7 @@ func TestNewWeightedGenerator_NegativeWeight(t *testing.T) {
 
 // TestNewWeightedGenerator_ZeroTotalWeight проверяет ошибку, когда сумма весов = 0.
 func TestNewWeightedGenerator_ZeroTotalWeight(t *testing.T) {
-	requests := []TestRequest{
+	requests := []models.TestRequest{
 		{Name: "Request1", Weight: 0},
 		{Name: "Request2", Weight: 0},
 		{Name: "Request3", Weight: 0},
@@ -110,7 +112,7 @@ func TestNewWeightedGenerator_ZeroTotalWeight(t *testing.T) {
 // TestNewWeightedGenerator_PartialZeroWeights проверяет работу с частичными нулевыми весами.
 // Запросы с весом 0 не должны выбираться.
 func TestNewWeightedGenerator_PartialZeroWeights(t *testing.T) {
-	requests := []TestRequest{
+	requests := []models.TestRequest{
 		{Name: "Active1", Weight: 50},
 		{Name: "Disabled", Weight: 0}, // Отключенный запрос.
 		{Name: "Active2", Weight: 50},
@@ -140,7 +142,7 @@ func TestNewWeightedGenerator_PartialZeroWeights(t *testing.T) {
 
 // TestWeightedGenerator_Next_BasicDistribution проверяет базовое распределение вероятностей.
 func TestWeightedGenerator_Next_BasicDistribution(t *testing.T) {
-	requests := []TestRequest{
+	requests := []models.TestRequest{
 		{Name: "Request1", Weight: 50},
 		{Name: "Request2", Weight: 30},
 		{Name: "Request3", Weight: 20},
@@ -183,7 +185,7 @@ func TestWeightedGenerator_Next_BasicDistribution(t *testing.T) {
 
 // TestWeightedGenerator_Next_HighPercentage проверяет работу с сильным перекосом (95%/3%/2%).
 func TestWeightedGenerator_Next_HighPercentage(t *testing.T) {
-	requests := []TestRequest{
+	requests := []models.TestRequest{
 		{Name: "DominantRequest", Weight: 95},
 		{Name: "RareRequest1", Weight: 3},
 		{Name: "RareRequest2", Weight: 2},
@@ -226,7 +228,7 @@ func TestWeightedGenerator_Next_HighPercentage(t *testing.T) {
 
 // TestWeightedGenerator_Next_ExtremePercentage проверяет экстремальный перекос (99%/0.5%/0.5%).
 func TestWeightedGenerator_Next_ExtremePercentage(t *testing.T) {
-	requests := []TestRequest{
+	requests := []models.TestRequest{
 		{Name: "AlmostAlways", Weight: 990},
 		{Name: "VeryRare1", Weight: 5},
 		{Name: "VeryRare2", Weight: 5},
@@ -282,7 +284,7 @@ func TestWeightedGenerator_Next_ExtremePercentage(t *testing.T) {
 
 // TestWeightedGenerator_Next_SingleRequest проверяет работу с одним запросом.
 func TestWeightedGenerator_Next_SingleRequest(t *testing.T) {
-	requests := []TestRequest{
+	requests := []models.TestRequest{
 		{Name: "OnlyOne", Weight: 100},
 	}
 
@@ -301,7 +303,7 @@ func TestWeightedGenerator_Next_SingleRequest(t *testing.T) {
 
 // TestWeightedGenerator_Next_TwoRequests проверяет работу с двумя запросами (70%/30%).
 func TestWeightedGenerator_Next_TwoRequests(t *testing.T) {
-	requests := []TestRequest{
+	requests := []models.TestRequest{
 		{Name: "Primary", Weight: 70},
 		{Name: "Secondary", Weight: 30},
 	}
@@ -333,7 +335,7 @@ func TestWeightedGenerator_Next_TwoRequests(t *testing.T) {
 
 // TestWeightedGenerator_Next_NonStandardWeights проверяет работу с произвольными весами (не %).
 func TestWeightedGenerator_Next_NonStandardWeights(t *testing.T) {
-	requests := []TestRequest{
+	requests := []models.TestRequest{
 		{Name: "Request1", Weight: 1},
 		{Name: "Request2", Weight: 2},
 		{Name: "Request3", Weight: 3},
@@ -374,7 +376,7 @@ func TestWeightedGenerator_Next_NonStandardWeights(t *testing.T) {
 
 // TestWeightedGenerator_Concurrency проверяет потокобезопасность генератора.
 func TestWeightedGenerator_Concurrency(t *testing.T) {
-	requests := []TestRequest{
+	requests := []models.TestRequest{
 		{Name: "Request1", Weight: 50},
 		{Name: "Request2", Weight: 50},
 	}
@@ -434,9 +436,9 @@ func TestWeightedGenerator_Concurrency(t *testing.T) {
 // TestWeightedGenerator_ManyRequests проверяет работу с большим количеством разных запросов.
 func TestWeightedGenerator_ManyRequests(t *testing.T) {
 	// Создаем 20 запросов с равными весами.
-	requests := make([]TestRequest, 20)
+	requests := make([]models.TestRequest, 20)
 	for i := 0; i < 20; i++ {
-		requests[i] = TestRequest{
+		requests[i] = models.TestRequest{
 			Name:   fmt.Sprintf("Request%d", i+1),
 			Weight: 5, // Каждый по 5% (всего 100%).
 		}
@@ -508,9 +510,9 @@ func TestWeightedGenerator_CumulativeWeightsCalculation(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			requests := make([]TestRequest, len(tt.weights))
+			requests := make([]models.TestRequest, len(tt.weights))
 			for i, w := range tt.weights {
-				requests[i] = TestRequest{
+				requests[i] = models.TestRequest{
 					Name:   fmt.Sprintf("Req%d", i+1),
 					Weight: w,
 				}
