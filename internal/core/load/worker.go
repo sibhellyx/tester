@@ -15,10 +15,10 @@ type RequestGenerator interface {
 // RunVirtualUser - функция запускающая
 func RunVirtualUser(
 	ctx context.Context,
-	attacker *Attacker,
-	generator RequestGenerator,
-	results chan<- models.CallResult,
 	wg *sync.WaitGroup,
+	generator RequestGenerator,
+	attacker AttackerTool,
+	results chan<- models.CallResult,
 ) {
 	// Закрываем waitgroup.
 	defer wg.Done()
