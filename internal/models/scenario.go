@@ -29,6 +29,33 @@ type Stage struct {
 	Requests    []TestRequest `json:"requests"`     // Набор запросов для этого этапа (с весами).
 
 	// Хаос-инжиниринг (будет добавлено позже).
+	ChaosEvents []ChaosParams `json:"chaos_events,omitempty"`
+}
+
+// ChaosType - тип сбоя.
+type ChaosType string
+
+const (
+	ChaosShutdown     ChaosType = "component_shutdown"
+	ChaosNetworkDelay ChaosType = "network_delay"
+	ChaosPacketLoss   ChaosType = "packet_loss"
+	ChaosResource     ChaosType = "resource_limit"
+)
+
+// ChaosParams - параметры одного сбоя.
+type ChaosParams struct {
+	Type              ChaosType `json:"type"`             // Тип сбоя
+	TargetContainerID string    `json:"target_container"` // ID контейнера
+	StartDelay        int       `json:"start_delay"`      // Задержка от начала этапа (сек)
+	Duration          int       `json:"duration"`         // Длительность сбоя (сек)
+
+	// Специфичные параметры (зависят от типа)
+	Delay       string `json:"delay,omitempty"`        // "100ms" (для network_delay)
+	Jitter      string `json:"jitter,omitempty"`       // "10ms" (для network_delay)
+	PacketLoss  int    `json:"packet_loss,omitempty"`  // 0-100 (для network_loss)
+	CPUQuota    int64  `json:"cpu_quota,omitempty"`    // -1..100000 (для resource_limit)
+	MemoryBytes int64  `json:"memory_bytes,omitempty"` // bytes (для resource_limit)
+
 }
 
 // Validate проверяет корректность сценария перед запуском.
@@ -65,6 +92,28 @@ func (s *TestScenario) Validate() error {
 		}
 
 		totalDuration += stage.Duration
+
+		// валидация сбоев при наличии.
+		for j, chaos := range stage.ChaosEvents {
+			if chaos.TargetContainerID == "" {
+				return fmt.Errorf("stage #%d chaos #%d target_container is required", i+1, j+1)
+			}
+			if chaos.Duration <= 0 {
+				return fmt.Errorf("stage #%d chaos #%d duration must be positive", i+1, j+1)
+			}
+			if chaos.StartDelay < 0 {
+				return fmt.Errorf("stage #%d chaos #%d start_delay cannot be negative", i+1, j+1)
+			}
+			// Сбой не должен вылезать за пределы этапа.
+			if chaos.StartDelay+chaos.Duration > stage.Duration {
+				return fmt.Errorf("stage #%d chaos #%d exceeds stage duration", i+1, j+1)
+			}
+
+			// Валидация типов (опционально).
+			if chaos.Type == ChaosNetworkDelay && chaos.Delay == "" {
+				return fmt.Errorf("stage #%d chaos #%d network_delay requires 'delay' param", i+1, j+1)
+			}
+		}
 	}
 
 	// Если пользователь забыл указать TotalDuration, считаем сами.
