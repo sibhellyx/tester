@@ -53,13 +53,8 @@ func (e *Engine) Run(ctx context.Context, scenario models.TestScenario) (<-chan 
 			default:
 				// Продолжаем выполение теста.
 			}
-			generatorForStage, err := NewWeightedGenerator(stage.Requests)
-			if err != nil {
-				e.logger.Error("Failed to create generator", slog.Any("err", err))
-				return // прерываем тест при невозможности создать генератор.
-			}
 			// Выполнение конкретного этапа.
-			e.ExecuteStage(ctx, stage, generatorForStage, results)
+			e.ExecuteStage(ctx, stage, results)
 		}
 		e.logger.Info("Test finished successfully", slog.String("scenario_id", scenario.ID))
 	}()
@@ -70,13 +65,19 @@ func (e *Engine) Run(ctx context.Context, scenario models.TestScenario) (<-chan 
 func (e *Engine) ExecuteStage(
 	ctx context.Context,
 	stage models.Stage,
-	generator RequestGenerator,
 	results chan<- models.CallResult,
 ) {
 	e.logger.Info("Starting stage",
 		slog.Int("stage_id", stage.ID),
 		slog.String("type", string(stage.Type)),
 	)
+	// Инициализация генератора для выполнения нагрузки.
+	generatorForStage, err := NewWeightedGenerator(stage.Requests)
+	if err != nil {
+		e.logger.Error("Failed to create generator", slog.Any("err", err))
+		return // прерываем тест при невозможности создать генератор.
+	}
+
 	// Контекст этапа с отменой по длительности этапа.
 	stageCtx, cancel := context.WithTimeout(ctx, time.Duration(stage.Duration)*time.Second)
 	defer cancel()
@@ -86,7 +87,7 @@ func (e *Engine) ExecuteStage(
 	case models.StageSteady:
 		e.wg.Add(stage.TargetUsers)
 		for i := 0; i < stage.TargetUsers; i++ {
-			go RunVirtualUser(stageCtx, &e.wg, generator, e.attacker, results)
+			go RunVirtualUser(stageCtx, &e.wg, generatorForStage, e.attacker, results)
 		}
 	default:
 		e.logger.Warn("Unknown stage type", slog.String("type", string(stage.Type)))

@@ -1,0 +1,82 @@
+package service
+
+import (
+	"context"
+	"log/slog"
+	"sync"
+
+	"github.com/sibhellyx/tester/internal/models"
+)
+
+type ChaosEngine interface {
+	ExecuteRunning(ctx context.Context, events []models.ChaosParams) *sync.WaitGroup
+}
+
+type LoadEngine interface {
+	ExecuteStage(ctx context.Context, stage models.Stage, results chan<- models.CallResult)
+}
+
+// Coordinator управляет всем тестом: и нагрузкой, и хаосом.
+type Coordinator struct {
+	logger *slog.Logger
+	// LoadEngine для управления нагрузочным тестированием.
+	loadEngine LoadEngine
+	// ChaosEngine для управления стрессовым тестированием.
+	chaosEngine ChaosEngine
+}
+
+// NewCoordinator инициализация оркестратора для управления тестом.
+func NewCoordinator(logger *slog.Logger, load LoadEngine, chaos ChaosEngine) *Coordinator {
+	return &Coordinator{
+		logger:      logger,
+		loadEngine:  load,
+		chaosEngine: chaos,
+	}
+}
+
+// RunTest запускает полный сценарий тестирования.
+func (c *Coordinator) RunTest(ctx context.Context, scenario models.TestScenario) (<-chan models.CallResult, error) {
+	if err := scenario.Validate(); err != nil {
+		return nil, err
+	}
+
+	results := make(chan models.CallResult, 1000)
+
+	go func() {
+		defer close(results)
+		c.logger.Info("Coordinator started test", slog.String("id", scenario.ID))
+
+		for _, stage := range scenario.Stages {
+			select {
+			case <-ctx.Done():
+				return
+			default:
+			}
+
+			c.runStage(ctx, stage, results)
+		}
+
+		c.logger.Info("Coordinator finished test")
+	}()
+
+	return results, nil
+}
+
+func (c *Coordinator) runStage(ctx context.Context, stage models.Stage, results chan<- models.CallResult) {
+	c.logger.Info("Coordinator starting stage", slog.Int("id", stage.ID))
+
+	// Запускаем Хаос (если есть события)
+	if len(stage.ChaosEvents) > 0 {
+		c.logger.Info("Initializing chaos events", slog.Int("count", len(stage.ChaosEvents)))
+		// Запускаем хаос. Он работает в фоне.
+		// wgChaos можно использовать, если мы хотим убедиться, что Recover прошел (сейчас не проверяю).
+		_ = c.chaosEngine.ExecuteRunning(ctx, stage.ChaosEvents)
+	}
+
+	// Запускаем Нагрузку. 
+	// LoadEngine будет работать ровно stage.Duration. 
+	// ChaosEngine будет работать параллельно. 
+	c.loadEngine.ExecuteStage(ctx, stage, results)
+
+	c.logger.Info("Stage finished")
+}
