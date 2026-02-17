@@ -1,0 +1,17 @@
+# observability/prometheus/prometheus.yml
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+
+scrape_configs:
+  # Сам Prometheus
+  - job_name: "prometheus"
+    static_configs:
+      - targets: ["localhost:9090"]
+
+  # Основной сервис тестировщика
+  - job_name: "tester"
+    static_configs:
+      - targets: ["tester:8080"]
+    metrics_path: "/metrics"
+    scrape_interval: 5s
