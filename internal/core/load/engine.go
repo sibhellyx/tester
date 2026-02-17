@@ -59,15 +59,15 @@ func (e *Engine) Run(ctx context.Context, scenario models.TestScenario) (<-chan 
 				return // прерываем тест при невозможности создать генератор.
 			}
 			// Выполнение конкретного этапа.
-			e.executeStage(ctx, stage, generatorForStage, results)
+			e.ExecuteStage(ctx, stage, generatorForStage, results)
 		}
 		e.logger.Info("Test finished successfully", slog.String("scenario_id", scenario.ID))
 	}()
 	return results, nil
 }
 
-// executeStage - приватный метод выполняющий конкретный переданный этап.
-func (e *Engine) executeStage(
+// ExecuteStage - метод выполняющий конкретный переданный этап.
+func (e *Engine) ExecuteStage(
 	ctx context.Context,
 	stage models.Stage,
 	generator RequestGenerator,
@@ -99,9 +99,9 @@ func (e *Engine) executeStage(
 
 	select {
 	case <-stageCtx.Done():
-		// Проверяем причину завершения контекста. 
+		// Проверяем причину завершения контекста.
 		if ctx.Err() != nil {
-			// Родительский контекст был отменен. 
+			// Родительский контекст был отменен.
 			e.logger.Info("Stage cancelled by parent context",
 				slog.Int("stage_id", stage.ID),
 			)
