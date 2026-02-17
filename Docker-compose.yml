@@ -1,5 +1,5 @@
 # ==============================================================================
-# docker-compose.yml — Load Tester + Observability Stack
+# docker-compose.yml — Tester + Observability Stack
 #
 # Стек включает:
 #   - tester        : основной Go-сервис
@@ -38,7 +38,7 @@ services:
       - observability
 
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U postgres -d load_tester_db"]
+      test: ["CMD-SHELL", "pg_isready -U postgres -d tester_db"]
       interval: 5s
       timeout: 5s
       retries: 10
@@ -82,7 +82,7 @@ services:
       - TZ=UTC
       # DSN берётся из config.yaml через cfgManager — переменная здесь как fallback
       # и для наглядности. Реальное значение живёт в confs/config.yaml.
-      - DB_DSN=postgres://postgres:postgres@postgres:5432/load_tester_db?sslmode=disable
+      - DB_DSN=postgres://postgres:postgres@postgres:5432/tester_db?sslmode=disable
 
     networks:
       - observability
