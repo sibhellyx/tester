@@ -10,19 +10,19 @@ import (
 )
 
 // AttackerTool - интерфейс предоставляющий доступ к методу, для выполнения запроса к тесту.
-type AttackerTool interface {
+type AttackerToolInterface interface {
 	Shoot(requestModel models.TestRequest) models.CallResult
 }
 
 // Engine - структура, координирующая нагрузочное тестирование.
 type Engine struct {
-	logger   *slog.Logger   // вывод logs.
-	attacker AttackerTool   // инструмент для выполнения запроса.
-	wg       sync.WaitGroup // для координации тестированния.
+	logger   *slog.Logger          // вывод logs.
+	attacker AttackerToolInterface // инструмент для выполнения запроса.
+	wg       sync.WaitGroup        // для координации тестированния.
 }
 
 // NewEngine - создает оркестратор нагрузочного тестирования.
-func NewEngine(logger *slog.Logger, attacker AttackerTool) *Engine {
+func NewEngine(logger *slog.Logger, attacker AttackerToolInterface) *Engine {
 	return &Engine{
 		logger:   logger,
 		attacker: attacker,

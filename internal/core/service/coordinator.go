@@ -8,11 +8,11 @@ import (
 	"github.com/sibhellyx/tester/internal/models"
 )
 
-type ChaosEngine interface {
+type ChaosEngineInterface interface {
 	ExecuteRunning(ctx context.Context, events []models.ChaosParams) *sync.WaitGroup
 }
 
-type LoadEngine interface {
+type LoadEngineInterface interface {
 	ExecuteStage(ctx context.Context, stage models.Stage, results chan<- models.CallResult)
 }
 
@@ -20,13 +20,13 @@ type LoadEngine interface {
 type Coordinator struct {
 	logger *slog.Logger
 	// LoadEngine для управления нагрузочным тестированием.
-	loadEngine LoadEngine
+	loadEngine LoadEngineInterface
 	// ChaosEngine для управления стрессовым тестированием.
-	chaosEngine ChaosEngine
+	chaosEngine ChaosEngineInterface
 }
 
 // NewCoordinator инициализация оркестратора для управления тестом.
-func NewCoordinator(logger *slog.Logger, load LoadEngine, chaos ChaosEngine) *Coordinator {
+func NewCoordinator(logger *slog.Logger, load LoadEngineInterface, chaos ChaosEngineInterface) *Coordinator {
 	return &Coordinator{
 		logger:      logger,
 		loadEngine:  load,
@@ -73,9 +73,9 @@ func (c *Coordinator) runStage(ctx context.Context, stage models.Stage, results 
 		_ = c.chaosEngine.ExecuteRunning(ctx, stage.ChaosEvents)
 	}
 
-	// Запускаем Нагрузку. 
-	// LoadEngine будет работать ровно stage.Duration. 
-	// ChaosEngine будет работать параллельно. 
+	// Запускаем Нагрузку.
+	// LoadEngine будет работать ровно stage.Duration.
+	// ChaosEngine будет работать параллельно.
 	c.loadEngine.ExecuteStage(ctx, stage, results)
 
 	c.logger.Info("Stage finished")

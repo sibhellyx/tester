@@ -8,7 +8,7 @@ import (
 )
 
 // RequestGenerator - интерфейс генератора, предоставляет метод для получения следующего для выполения запроса.
-type RequestGenerator interface {
+type RequestGeneratorInterface interface {
 	Next() *models.TestRequest // Возвращаетс следующий запрос или nil.
 }
 
@@ -16,8 +16,8 @@ type RequestGenerator interface {
 func RunVirtualUser(
 	ctx context.Context,
 	wg *sync.WaitGroup,
-	generator RequestGenerator,
-	attacker AttackerTool,
+	generator RequestGeneratorInterface,
+	attacker AttackerToolInterface,
 	results chan<- models.CallResult,
 ) {
 	// Закрываем waitgroup.
