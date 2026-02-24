@@ -9,6 +9,8 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/sibhellyx/tester/internal/api"
+	"github.com/sibhellyx/tester/internal/api/handlers"
 	"github.com/sibhellyx/tester/internal/core/chaos"
 	"github.com/sibhellyx/tester/internal/core/load"
 	"github.com/sibhellyx/tester/internal/core/service"
@@ -51,10 +53,15 @@ func main() {
 
 	// Запуск тестового сценария.
 	go runDebugScenario(log, coordinator)
+
+	// Инициализация handlers
+	scenarioHandler := handlers.NewScenarioHandler(log, nil)
+
+	router := api.NewRouter(scenarioHandler)
 	// Создания и запуск веб-сервера.
 	server := &http.Server{
-		Addr: currentCfg.App.Port,
-		// Handler: nil,
+		Addr:    currentCfg.App.Port,
+		Handler: router.SetupRoutes(log),
 	}
 
 	go func() {

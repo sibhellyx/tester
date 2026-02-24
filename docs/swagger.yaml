@@ -1,0 +1,297 @@
+definitions:
+  models.ChaosParams:
+    properties:
+      cpu_quota:
+        description: -1..100000 (для resource_limit)
+        type: integer
+      delay:
+        description: Специфичные параметры (зависят от типа)
+        type: string
+      duration:
+        description: Длительность сбоя (сек)
+        type: integer
+      jitter:
+        description: '"10ms" (для network_delay)'
+        type: string
+      memory_bytes:
+        description: bytes (для resource_limit)
+        type: integer
+      packet_loss:
+        description: 0-100 (для network_loss)
+        type: integer
+      start_delay:
+        description: Задержка от начала этапа (сек)
+        type: integer
+      target_container:
+        description: ID контейнера
+        type: string
+      type:
+        allOf:
+        - $ref: '#/definitions/models.ChaosType'
+        description: Тип сбоя
+    type: object
+  models.ChaosType:
+    enum:
+    - component_shutdown
+    - network_delay
+    - packet_loss
+    - resource_limit
+    type: string
+    x-enum-varnames:
+    - ChaosShutdown
+    - ChaosNetworkDelay
+    - ChaosPacketLoss
+    - ChaosResource
+  models.Stage:
+    properties:
+      chaos_events:
+        description: Хаос-инжиниринг (будет добавлено позже).
+        items:
+          $ref: '#/definitions/models.ChaosParams'
+        type: array
+      duration:
+        description: Длительность этапа в секундах.
+        type: integer
+      id:
+        description: Порядковый номер этапа (1, 2, 3...).
+        type: integer
+      requests:
+        description: Набор запросов для этого этапа (с весами).
+        items:
+          $ref: '#/definitions/models.TestRequest'
+        type: array
+      target_users:
+        description: Целевое количество пользователей (VU) к концу этапа.
+        type: integer
+      type:
+        allOf:
+        - $ref: '#/definitions/models.StageType'
+        description: Тип этапа (ramp_up, steady, ramp_down).
+    type: object
+  models.StageType:
+    enum:
+    - ramp_up
+    - steady
+    - ramp_down
+    type: string
+    x-enum-comments:
+      StageRampDown: Плавное снижение (линейное уменьшение).
+      StageRampUp: Плавный разгон (линейный рост пользователей).
+      StageSteady: Постоянная нагрузка (фиксированное число пользователей).
+    x-enum-descriptions:
+    - Плавный разгон (линейный рост пользователей).
+    - Постоянная нагрузка (фиксированное число пользователей).
+    - Плавное снижение (линейное уменьшение).
+    x-enum-varnames:
+    - StageRampUp
+    - StageSteady
+    - StageRampDown
+  models.TestRequest:
+    properties:
+      body:
+        description: JSON payload.
+        type: string
+      endpoint:
+        description: '"/api/v1/users".'
+        type: string
+      expected_codes:
+        description: '[401, 404] Ожидаемые коды.'
+        items:
+          type: integer
+        type: array
+      headers:
+        additionalProperties:
+          type: string
+        description: '"Content-Type": "application/json".'
+        type: object
+      method:
+        description: GET, POST, PUT, DELETE.
+        type: string
+      name:
+        description: '"Login", "GetUsers".'
+        type: string
+      probability:
+        description: Вероятность выполнения (в %).
+        type: integer
+    type: object
+  models.TestScenario:
+    properties:
+      base_url:
+        description: Базовый URL (напр. "https://api.myshop.com").
+        type: string
+      id:
+        description: Уникальный ID запуска (генерируется сервисом).
+        type: string
+      name:
+        description: Читаемое имя теста (напр. "Checkout Load Test").
+        type: string
+      stages:
+        description: Список этапов выполнения.
+        items:
+          $ref: '#/definitions/models.Stage'
+        type: array
+      total_duration:
+        description: Общая длительность в секундах (защита от зависания).
+        type: integer
+    type: object
+info:
+  contact: {}
+paths:
+  /api/v1/scenarios:
+    get:
+      description: Возвращает список всех доступных сценариев
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/models.TestScenario'
+            type: array
+        "500":
+          description: Internal Server Error
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      summary: Список сценариев
+      tags:
+      - scenarios
+    post:
+      consumes:
+      - application/json
+      description: Создает и сохраняет новый сценарий тестирования
+      parameters:
+      - description: Тело сценария
+        in: body
+        name: input
+        required: true
+        schema:
+          $ref: '#/definitions/models.TestScenario'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: id созданного сценария
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "400":
+          description: Ошибка валидации
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "500":
+          description: Внутренняя ошибка сервера
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      summary: Создать сценарий
+      tags:
+      - scenarios
+  /api/v1/scenarios/{id}:
+    delete:
+      description: Удаляет сценарий по ID
+      parameters:
+      - description: ID сценария
+        in: path
+        name: id
+        required: true
+        type: string
+      responses:
+        "204":
+          description: No Content
+        "404":
+          description: Not Found
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      summary: Удалить сценарий
+      tags:
+      - scenarios
+    get:
+      description: Возвращает сценарий по его ID
+      parameters:
+      - description: ID сценария
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/models.TestScenario'
+        "404":
+          description: Сценарий не найден
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "500":
+          description: Внутренняя ошибка
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      summary: Получить сценарий
+      tags:
+      - scenarios
+    put:
+      consumes:
+      - application/json
+      description: Обновляет существующий сценарий по ID
+      parameters:
+      - description: ID сценария
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Обновленные данные
+        in: body
+        name: input
+        required: true
+        schema:
+          $ref: '#/definitions/models.TestScenario'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/models.TestScenario'
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "404":
+          description: Not Found
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      summary: Обновить сценарий
+      tags:
+      - scenarios
+swagger: "2.0"

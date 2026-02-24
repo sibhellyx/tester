@@ -1,0 +1,436 @@
+{
+    "swagger": "2.0",
+    "info": {
+        "contact": {}
+    },
+    "paths": {
+        "/api/v1/scenarios": {
+            "get": {
+                "description": "Возвращает список всех доступных сценариев",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "scenarios"
+                ],
+                "summary": "Список сценариев",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/models.TestScenario"
+                            }
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    }
+                }
+            },
+            "post": {
+                "description": "Создает и сохраняет новый сценарий тестирования",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "scenarios"
+                ],
+                "summary": "Создать сценарий",
+                "parameters": [
+                    {
+                        "description": "Тело сценария",
+                        "name": "input",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/models.TestScenario"
+                        }
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "description": "id созданного сценария",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "400": {
+                        "description": "Ошибка валидации",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "500": {
+                        "description": "Внутренняя ошибка сервера",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/scenarios/{id}": {
+            "get": {
+                "description": "Возвращает сценарий по его ID",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "scenarios"
+                ],
+                "summary": "Получить сценарий",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "ID сценария",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/models.TestScenario"
+                        }
+                    },
+                    "404": {
+                        "description": "Сценарий не найден",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "500": {
+                        "description": "Внутренняя ошибка",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    }
+                }
+            },
+            "put": {
+                "description": "Обновляет существующий сценарий по ID",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "scenarios"
+                ],
+                "summary": "Обновить сценарий",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "ID сценария",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Обновленные данные",
+                        "name": "input",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/models.TestScenario"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/models.TestScenario"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    }
+                }
+            },
+            "delete": {
+                "description": "Удаляет сценарий по ID",
+                "tags": [
+                    "scenarios"
+                ],
+                "summary": "Удалить сценарий",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "ID сценария",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "204": {
+                        "description": "No Content"
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    },
+    "definitions": {
+        "models.ChaosParams": {
+            "type": "object",
+            "properties": {
+                "cpu_quota": {
+                    "description": "-1..100000 (для resource_limit)",
+                    "type": "integer"
+                },
+                "delay": {
+                    "description": "Специфичные параметры (зависят от типа)",
+                    "type": "string"
+                },
+                "duration": {
+                    "description": "Длительность сбоя (сек)",
+                    "type": "integer"
+                },
+                "jitter": {
+                    "description": "\"10ms\" (для network_delay)",
+                    "type": "string"
+                },
+                "memory_bytes": {
+                    "description": "bytes (для resource_limit)",
+                    "type": "integer"
+                },
+                "packet_loss": {
+                    "description": "0-100 (для network_loss)",
+                    "type": "integer"
+                },
+                "start_delay": {
+                    "description": "Задержка от начала этапа (сек)",
+                    "type": "integer"
+                },
+                "target_container": {
+                    "description": "ID контейнера",
+                    "type": "string"
+                },
+                "type": {
+                    "description": "Тип сбоя",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/models.ChaosType"
+                        }
+                    ]
+                }
+            }
+        },
+        "models.ChaosType": {
+            "type": "string",
+            "enum": [
+                "component_shutdown",
+                "network_delay",
+                "packet_loss",
+                "resource_limit"
+            ],
+            "x-enum-varnames": [
+                "ChaosShutdown",
+                "ChaosNetworkDelay",
+                "ChaosPacketLoss",
+                "ChaosResource"
+            ]
+        },
+        "models.Stage": {
+            "type": "object",
+            "properties": {
+                "chaos_events": {
+                    "description": "Хаос-инжиниринг (будет добавлено позже).",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/models.ChaosParams"
+                    }
+                },
+                "duration": {
+                    "description": "Длительность этапа в секундах.",
+                    "type": "integer"
+                },
+                "id": {
+                    "description": "Порядковый номер этапа (1, 2, 3...).",
+                    "type": "integer"
+                },
+                "requests": {
+                    "description": "Набор запросов для этого этапа (с весами).",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/models.TestRequest"
+                    }
+                },
+                "target_users": {
+                    "description": "Целевое количество пользователей (VU) к концу этапа.",
+                    "type": "integer"
+                },
+                "type": {
+                    "description": "Тип этапа (ramp_up, steady, ramp_down).",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/models.StageType"
+                        }
+                    ]
+                }
+            }
+        },
+        "models.StageType": {
+            "type": "string",
+            "enum": [
+                "ramp_up",
+                "steady",
+                "ramp_down"
+            ],
+            "x-enum-comments": {
+                "StageRampDown": "Плавное снижение (линейное уменьшение).",
+                "StageRampUp": "Плавный разгон (линейный рост пользователей).",
+                "StageSteady": "Постоянная нагрузка (фиксированное число пользователей)."
+            },
+            "x-enum-descriptions": [
+                "Плавный разгон (линейный рост пользователей).",
+                "Постоянная нагрузка (фиксированное число пользователей).",
+                "Плавное снижение (линейное уменьшение)."
+            ],
+            "x-enum-varnames": [
+                "StageRampUp",
+                "StageSteady",
+                "StageRampDown"
+            ]
+        },
+        "models.TestRequest": {
+            "type": "object",
+            "properties": {
+                "body": {
+                    "description": "JSON payload.",
+                    "type": "string"
+                },
+                "endpoint": {
+                    "description": "\"/api/v1/users\".",
+                    "type": "string"
+                },
+                "expected_codes": {
+                    "description": "[401, 404] Ожидаемые коды.",
+                    "type": "array",
+                    "items": {
+                        "type": "integer"
+                    }
+                },
+                "headers": {
+                    "description": "\"Content-Type\": \"application/json\".",
+                    "type": "object",
+                    "additionalProperties": {
+                        "type": "string"
+                    }
+                },
+                "method": {
+                    "description": "GET, POST, PUT, DELETE.",
+                    "type": "string"
+                },
+                "name": {
+                    "description": "\"Login\", \"GetUsers\".",
+                    "type": "string"
+                },
+                "probability": {
+                    "description": "Вероятность выполнения (в %).",
+                    "type": "integer"
+                }
+            }
+        },
+        "models.TestScenario": {
+            "type": "object",
+            "properties": {
+                "base_url": {
+                    "description": "Базовый URL (напр. \"https://api.myshop.com\").",
+                    "type": "string"
+                },
+                "id": {
+                    "description": "Уникальный ID запуска (генерируется сервисом).",
+                    "type": "string"
+                },
+                "name": {
+                    "description": "Читаемое имя теста (напр. \"Checkout Load Test\").",
+                    "type": "string"
+                },
+                "stages": {
+                    "description": "Список этапов выполнения.",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/models.Stage"
+                    }
+                },
+                "total_duration": {
+                    "description": "Общая длительность в секундах (защита от зависания).",
+                    "type": "integer"
+                }
+            }
+        }
+    }
+}
