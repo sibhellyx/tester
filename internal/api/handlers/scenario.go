@@ -2,11 +2,13 @@ package handlers
 
 import (
 	"context"
+	"errors"
 	"log/slog"
 	"net/http"
 
 	"github.com/gin-gonic/gin"
 	"github.com/sibhellyx/tester/internal/models"
+	"github.com/sibhellyx/tester/internal/service"
 )
 
 // TestManagementServiceInterface определяет бизнес-логику управления сценариями.
@@ -56,8 +58,13 @@ func (h *ScenarioHandler) CreateScenario(c *gin.Context) {
 	// Вызов бизнес-логики.
 	id, err := h.service.CreateScenario(c.Request.Context(), scenario)
 	if err != nil {
-		h.logger.Error("Failed to create scenario", slog.String("error", err.Error()))
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to save scenario"})
+		if errors.Is(err, service.ErrInvalidScenario) {
+			// Ошибка валидации бизнес-логики -> 400.
+			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		} else {
+			// Любая другая ошибка (БД, сеть) -> 500.
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Internal Server Error"})
+		}
 		return
 	}
 
@@ -84,9 +91,11 @@ func (h *ScenarioHandler) GetScenario(c *gin.Context) {
 
 	scenario, err := h.service.GetScenario(c.Request.Context(), id)
 	if err != nil {
-		// Здесь можно проверить тип ошибки, если сервис возвращает специфичные ошибки (например, ErrNotFound).
-		h.logger.Error("Failed to get scenario", slog.String("id", id), slog.String("error", err.Error()))
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		if errors.Is(err, service.ErrScenarioNotFound) {
+			c.JSON(http.StatusNotFound, gin.H{"error": "Scenario not found"})
+		} else {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Internal Server Error"})
+		}
 		return
 	}
 
@@ -140,8 +149,11 @@ func (h *ScenarioHandler) DeleteScenario(c *gin.Context) {
 
 	err := h.service.DeleteScenario(c.Request.Context(), id)
 	if err != nil {
-		h.logger.Error("Failed to delete scenario", slog.String("id", id), slog.String("error", err.Error()))
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		if errors.Is(err, service.ErrScenarioNotFound) {
+			c.JSON(http.StatusNotFound, gin.H{"error": "Scenario not found"})
+		} else {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Internal Server Error"})
+		}
 		return
 	}
 
@@ -182,8 +194,13 @@ func (h *ScenarioHandler) UpdateScenario(c *gin.Context) {
 	// Вызываем сервис обновления.
 	err := h.service.UpdateScenario(c.Request.Context(), scenario)
 	if err != nil {
-		h.logger.Error("Failed to update scenario", slog.String("id", id), slog.String("error", err.Error()))
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		if errors.Is(err, service.ErrInvalidScenario) {
+			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		} else if errors.Is(err, service.ErrScenarioNotFound) {
+			c.JSON(http.StatusNotFound, gin.H{"error": "Scenario not found"})
+		} else {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Internal Server Error"})
+		}
 		return
 	}
 
