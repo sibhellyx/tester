@@ -14,11 +14,8 @@ import (
 
 	"github.com/sibhellyx/tester/internal/api"
 	"github.com/sibhellyx/tester/internal/api/handlers"
-	"github.com/sibhellyx/tester/internal/core/chaos"
-	"github.com/sibhellyx/tester/internal/core/load"
-	"github.com/sibhellyx/tester/internal/core/service"
 	"github.com/sibhellyx/tester/internal/database"
-	"github.com/sibhellyx/tester/internal/models"
+	"github.com/sibhellyx/tester/internal/service"
 	"github.com/sibhellyx/tester/pkg/config"
 	"github.com/sibhellyx/tester/pkg/logger"
 )
@@ -54,28 +51,32 @@ func main() {
 
 	log.Info("Starting service", slog.String("port", currentCfg.App.Port))
 
-	// Инициализация движка для нагрузочного тестирования.
-	attacker := load.NewAttacker(10 * time.Second)
-	loadEngine := load.NewEngine(log, attacker)
+	// // Инициализация движка для нагрузочного тестирования.
+	// attacker := load.NewAttacker(10 * time.Second)
+	// loadEngine := load.NewEngine(log, attacker)
 
-	// Инициализаци движка для стрессового тестирования.
-	var chaosEngine *chaos.Engine
-	dockerClient, err := chaos.NewDockerClient()
-	if err != nil {
-		log.Warn("Failed to connect to Docker. Chaos Engine disabled.", slog.String("error", err.Error()))
-	} else {
-		chaosEngine = chaos.NewEngine(log, dockerClient)
-		log.Info("Chaos Engine initialized successfully")
-	}
+	// // Инициализаци движка для стрессового тестирования.
+	// var chaosEngine *chaos.Engine
+	// dockerClient, err := chaos.NewDockerClient()
+	// if err != nil {
+	// 	log.Warn("Failed to connect to Docker. Chaos Engine disabled.", slog.String("error", err.Error()))
+	// } else {
+	// 	chaosEngine = chaos.NewEngine(log, dockerClient)
+	// 	log.Info("Chaos Engine initialized successfully")
+	// }
 
-	// Инициализация координатора для тестирования.
-	coordinator := service.NewCoordinator(log, loadEngine, chaosEngine)
+	// // Инициализация координатора для тестирования.
+	// coordinator := service.NewCoordinator(log, loadEngine, chaosEngine)
 
-	// Запуск тестового сценария.
-	go runDebugScenario(log, coordinator)
+	// // Запуск тестового сценария.
+	// go runDebugScenario(log, coordinator)
 
-	// Инициализация handlers
-	scenarioHandler := handlers.NewScenarioHandler(log, nil)
+	// Инициализация repository.
+	repository := database.NewPostgresRepository(log, db)
+	// Инициализация сервиса для управления сценариями.
+	scenarioService := service.NewTestManagementService(log, repository)
+	// Инициализация handler's для обработки запросов связанных со сценариями.
+	scenarioHandler := handlers.NewScenarioHandler(log, scenarioService)
 
 	router := api.NewRouter(scenarioHandler)
 	// Создания и запуск веб-сервера.
@@ -144,64 +145,64 @@ func main() {
 	}
 }
 
-// runDebugScenario - вспомогательная функция, которая запускает хардкодный тест
-func runDebugScenario(log *slog.Logger, coord *service.Coordinator) {
-	// Даем серверу пару секунд на старт
-	time.Sleep(2 * time.Second)
-	log.Info(">>> STARTING DEBUG SCENARIO <<<")
+// // runDebugScenario - вспомогательная функция, которая запускает хардкодный тест
+// func runDebugScenario(log *slog.Logger, coord *service.Coordinator) {
+// 	// Даем серверу пару секунд на старт
+// 	time.Sleep(2 * time.Second)
+// 	log.Info(">>> STARTING DEBUG SCENARIO <<<")
 
-	// 1. Описываем сценарий: 10 секунд нагрузки на Google
-	scenario := models.TestScenario{
-		ID:            "debug-run-1",
-		Name:          "Debug Test",
-		BaseURL:       "https://google.com",
-		TotalDuration: 15,
-		Stages: []models.Stage{
-			{
-				ID:          1,
-				Type:        models.StageSteady,
-				Duration:    10, // 10 секунд
-				TargetUsers: 2,  // 2 потока
-				Requests: []models.TestRequest{
-					{
-						Name:   "Get Google",
-						Method: "GET",
-						Path:   "https://google.com/",
-						Weight: 100,
-					},
-				},
-				ChaosEvents: []models.ChaosParams{
-					{
-						Type:              models.ChaosShutdown,
-						TargetContainerID: "my-test-nginx",
-						StartDelay:        2,
-						Duration:          3,
-					},
-				},
-			},
-		},
-	}
+// 	// 1. Описываем сценарий: 10 секунд нагрузки на Google
+// 	scenario := models.TestScenario{
+// 		ID:            "debug-run-1",
+// 		Name:          "Debug Test",
+// 		BaseURL:       "https://google.com",
+// 		TotalDuration: 15,
+// 		Stages: []models.Stage{
+// 			{
+// 				ID:          1,
+// 				Type:        models.StageSteady,
+// 				Duration:    10, // 10 секунд
+// 				TargetUsers: 2,  // 2 потока
+// 				Requests: []models.TestRequest{
+// 					{
+// 						Name:   "Get Google",
+// 						Method: "GET",
+// 						Path:   "https://google.com/",
+// 						Weight: 100,
+// 					},
+// 				},
+// 				ChaosEvents: []models.ChaosParams{
+// 					{
+// 						Type:              models.ChaosShutdown,
+// 						TargetContainerID: "my-test-nginx",
+// 						StartDelay:        2,
+// 						Duration:          3,
+// 					},
+// 				},
+// 			},
+// 		},
+// 	}
 
-	// Запускаем
-	ctx := context.Background()
-	resultsCh, err := coord.RunTest(ctx, scenario)
-	if err != nil {
-		log.Error("Failed to start scenario", slog.String("error", err.Error()))
-		return
-	}
+// 	// Запускаем
+// 	ctx := context.Background()
+// 	resultsCh, err := coord.RunTest(ctx, scenario)
+// 	if err != nil {
+// 		log.Error("Failed to start scenario", slog.String("error", err.Error()))
+// 		return
+// 	}
 
-	// Читаем результаты
-	var count int
-	for res := range resultsCh {
-		count++
-		if count%10 == 0 { // Логируем каждый 10-й запрос, чтобы не спамить
-			log.Info("Result received",
-				slog.Int("status", res.Status),
-				slog.Int64("latency_ms", res.Duration.Milliseconds()),
-				slog.String("error", res.Error),
-			)
-		}
-	}
+// 	// Читаем результаты
+// 	var count int
+// 	for res := range resultsCh {
+// 		count++
+// 		if count%10 == 0 { // Логируем каждый 10-й запрос, чтобы не спамить
+// 			log.Info("Result received",
+// 				slog.Int("status", res.Status),
+// 				slog.Int64("latency_ms", res.Duration.Milliseconds()),
+// 				slog.String("error", res.Error),
+// 			)
+// 		}
+// 	}
 
-	log.Info(">>> DEBUG SCENARIO FINISHED <<<", slog.Int("total_requests", count))
-}
+// 	log.Info(">>> DEBUG SCENARIO FINISHED <<<", slog.Int("total_requests", count))
+// }
