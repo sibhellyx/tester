@@ -1,7 +1,7 @@
 # ==============================================================================
 # Stage 1: Build
 # ==============================================================================
-FROM golang:1.24.5-alpine AS builder
+FROM golang:1.25-alpine AS builder
 
 # Зависимости для сборки
 RUN apk add --no-cache git ca-certificates tzdata

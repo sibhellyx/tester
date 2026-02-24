@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"database/sql"
 	"log/slog"
 	"net/http"
 	"os"
@@ -9,11 +10,14 @@ import (
 	"syscall"
 	"time"
 
+	_ "github.com/lib/pq"
+
 	"github.com/sibhellyx/tester/internal/api"
 	"github.com/sibhellyx/tester/internal/api/handlers"
 	"github.com/sibhellyx/tester/internal/core/chaos"
 	"github.com/sibhellyx/tester/internal/core/load"
 	"github.com/sibhellyx/tester/internal/core/service"
+	"github.com/sibhellyx/tester/internal/database"
 	"github.com/sibhellyx/tester/internal/models"
 	"github.com/sibhellyx/tester/pkg/config"
 	"github.com/sibhellyx/tester/pkg/logger"
@@ -31,6 +35,22 @@ func main() {
 	// Инициализация логгера.
 	logWrapper := logger.Setup(currentCfg.LogConfig.Level)
 	log := logWrapper.Logger
+
+	// Инициализация database.
+	db, err := sql.Open("postgres", currentCfg.DbConfig.Dsn)
+	if err != nil {
+		log.Error("sql.Open:", slog.String("error", err.Error()))
+	}
+	defer db.Close()
+
+	ctx := context.Background()
+
+	// Применение миграций — до старта HTTP-сервера.
+	err = database.RunMigrations(ctx, db, log)
+	if err != nil {
+		log.Error("Failed to run migrations", slog.String("error", err.Error()))
+		os.Exit(1)
+	}
 
 	log.Info("Starting service", slog.String("port", currentCfg.App.Port))
 
