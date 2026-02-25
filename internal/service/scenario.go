@@ -18,7 +18,7 @@ var (
 )
 
 // ScenarioRepository определяет методы работы с БД.
-type ScenarioRepository interface {
+type ScenarioRepositoryInterface interface {
 	Create(ctx context.Context, s models.TestScenario) error
 	Get(ctx context.Context, id string) (*models.TestScenario, error)
 	List(ctx context.Context) ([]models.TestScenario, error)
@@ -29,11 +29,11 @@ type ScenarioRepository interface {
 // TestManagementService реализует логику управления сценариями.
 type TestManagementService struct {
 	logger *slog.Logger
-	repo   ScenarioRepository
+	repo   ScenarioRepositoryInterface
 }
 
 // NewTestManagementService - конструктор.
-func NewTestManagementService(logger *slog.Logger, repo ScenarioRepository) *TestManagementService {
+func NewTestManagementService(logger *slog.Logger, repo ScenarioRepositoryInterface) *TestManagementService {
 	return &TestManagementService{
 		logger: logger,
 		repo:   repo,

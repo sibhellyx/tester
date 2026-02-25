@@ -13,22 +13,22 @@ import (
 	"github.com/sibhellyx/tester/internal/service"
 )
 
-// PostgresRepository - универсальная структура для доступа к базе данных.
-type PostgresRepository struct {
+// ScenarioRepository - универсальная структура для доступа к базе данных.
+type ScenarioRepository struct {
 	logger *slog.Logger
 	db     *sql.DB
 }
 
-// NewPostgresRepository - функция для создания структуры доступа до repository.
-func NewPostgresRepository(logger *slog.Logger, db *sql.DB) *PostgresRepository {
-	return &PostgresRepository{
+// NewScenarioRepository - функция для создания структуры доступа до repository.
+func NewScenarioRepository(logger *slog.Logger, db *sql.DB) *ScenarioRepository {
+	return &ScenarioRepository{
 		logger: logger,
 		db:     db,
 	}
 }
 
 // Create - создает новую запись о сценарии в базе данных.
-func (r *PostgresRepository) Create(ctx context.Context, s models.TestScenario) error {
+func (r *ScenarioRepository) Create(ctx context.Context, s models.TestScenario) error {
 	tx, err := r.db.BeginTx(ctx, nil)
 	if err != nil {
 		return fmt.Errorf("begin tx: %w", err)
@@ -57,7 +57,7 @@ func (r *PostgresRepository) Create(ctx context.Context, s models.TestScenario) 
 }
 
 // Get - возвращает сценриай и (nil, nil) если сценарий не найден — сервис интерпретирует это как ErrScenarioNotFound.
-func (r *PostgresRepository) Get(ctx context.Context, id string) (*models.TestScenario, error) {
+func (r *ScenarioRepository) Get(ctx context.Context, id string) (*models.TestScenario, error) {
 	const query = `
 		SELECT id, name, base_url, total_duration
 		FROM scenarios
@@ -84,7 +84,7 @@ func (r *PostgresRepository) Get(ctx context.Context, id string) (*models.TestSc
 }
 
 // List - функция возвращает список созданных сценариев.
-func (r *PostgresRepository) List(ctx context.Context) ([]models.TestScenario, error) {
+func (r *ScenarioRepository) List(ctx context.Context) ([]models.TestScenario, error) {
 	const query = `
 		SELECT id, name, base_url, total_duration
 		FROM scenarios
@@ -122,7 +122,7 @@ func (r *PostgresRepository) List(ctx context.Context) ([]models.TestScenario, e
 }
 
 // Update - обновляет сценарий в базе данных.
-func (r *PostgresRepository) Update(ctx context.Context, s models.TestScenario) error {
+func (r *ScenarioRepository) Update(ctx context.Context, s models.TestScenario) error {
 	tx, err := r.db.BeginTx(ctx, nil)
 	if err != nil {
 		return fmt.Errorf("begin tx: %w", err)
@@ -170,7 +170,7 @@ func (r *PostgresRepository) Update(ctx context.Context, s models.TestScenario) 
 }
 
 // Delete - удаляет сценрий.
-func (r *PostgresRepository) Delete(ctx context.Context, id string) error {
+func (r *ScenarioRepository) Delete(ctx context.Context, id string) error {
 	// stages, requests, chaos_params удалятся каскадом через ON DELETE CASCADE
 	result, err := r.db.ExecContext(ctx,
 		`DELETE FROM scenarios WHERE id = $1`, id,
@@ -192,7 +192,7 @@ func (r *PostgresRepository) Delete(ctx context.Context, id string) error {
 }
 
 // loadStages загружает все этапы сценария вместе с запросами и chaos-событиями.
-func (r *PostgresRepository) loadStages(ctx context.Context, scenarioID string) ([]models.Stage, error) {
+func (r *ScenarioRepository) loadStages(ctx context.Context, scenarioID string) ([]models.Stage, error) {
 	const query = `
 		SELECT id, type, duration, target_users
 		FROM stages
@@ -234,7 +234,7 @@ func (r *PostgresRepository) loadStages(ctx context.Context, scenarioID string) 
 }
 
 // loadRequests загружает все запросы для конкретного этапа.
-func (r *PostgresRepository) loadRequests(ctx context.Context, scenarioID string, stageID int) ([]models.TestRequest, error) {
+func (r *ScenarioRepository) loadRequests(ctx context.Context, scenarioID string, stageID int) ([]models.TestRequest, error) {
 	const query = `
 		SELECT name, method, path, headers, body, weight, expected_codes
 		FROM test_requests
@@ -268,7 +268,7 @@ func (r *PostgresRepository) loadRequests(ctx context.Context, scenarioID string
 			return nil, fmt.Errorf("scan request: %w", err)
 		}
 
-		// JSON-строка → map[string]string. 
+		// JSON-строка → map[string]string.
 		req.Headers = make(map[string]string)
 		err = json.Unmarshal([]byte(headersRaw), &req.Headers)
 		if err != nil {
@@ -292,7 +292,7 @@ func (r *PostgresRepository) loadRequests(ctx context.Context, scenarioID string
 }
 
 // loadChaosParams загружает все chaos-события для конкретного этапа.
-func (r *PostgresRepository) loadChaosParams(ctx context.Context, scenarioID string, stageID int) ([]models.ChaosParams, error) {
+func (r *ScenarioRepository) loadChaosParams(ctx context.Context, scenarioID string, stageID int) ([]models.ChaosParams, error) {
 	const query = `
 		SELECT type, target_container_id, start_delay, duration,
 		       delay, jitter, packet_loss, cpu_quota, memory_bytes

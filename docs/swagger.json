@@ -4,6 +4,153 @@
         "contact": {}
     },
     "paths": {
+        "/api/v1/runs/{run_id}": {
+            "get": {
+                "description": "Возвращает текущий статус тестового прогона вместе со сценарием",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "runs"
+                ],
+                "summary": "Статус запуска",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "ID запуска",
+                        "name": "run_id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/models.TestWithStatus"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/runs/{run_id}/stop": {
+            "post": {
+                "description": "Принудительно останавливает активный тестовый прогон",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "runs"
+                ],
+                "summary": "Остановить тест",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "ID запуска",
+                        "name": "run_id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "204": {
+                        "description": "No Content"
+                    },
+                    "404": {
+                        "description": "Запуск не найден",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "409": {
+                        "description": "Тест уже не активен",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/runs/{run_id}/summary": {
+            "get": {
+                "description": "Возвращает агрегированную статистику завершённого запуска",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "runs"
+                ],
+                "summary": "Итоги запуска",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "ID запуска",
+                        "name": "run_id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/models.TestRunSummary"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    }
+                }
+            }
+        },
         "/api/v1/scenarios": {
             "get": {
                 "description": "Возвращает список всех доступных сценариев",
@@ -240,6 +387,95 @@
                     }
                 }
             }
+        },
+        "/api/v1/scenarios/{id}/runs": {
+            "get": {
+                "description": "Возвращает список всех запусков для данного сценария",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "runs"
+                ],
+                "summary": "История запусков",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "ID сценария",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/models.TestRun"
+                            }
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    }
+                }
+            },
+            "post": {
+                "description": "Запускает нагрузочное тестирование по ID сценария",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "runs"
+                ],
+                "summary": "Запустить тест",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "ID сценария",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "202": {
+                        "description": "id запуска",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "404": {
+                        "description": "Сценарий не найден",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "500": {
+                        "description": "Внутренняя ошибка",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    }
+                }
+            }
         }
     },
     "definitions": {
@@ -404,6 +640,105 @@
                 }
             }
         },
+        "models.TestRun": {
+            "type": "object",
+            "properties": {
+                "error": {
+                    "description": "Текст ошибки (если завершился с ошибкой).",
+                    "type": "string"
+                },
+                "finished_at": {
+                    "description": "Время завершения (nil если ещё идёт).",
+                    "type": "string"
+                },
+                "id": {
+                    "description": "UUID запуска.",
+                    "type": "string"
+                },
+                "scenario_id": {
+                    "description": "Ссылка на сценарий.",
+                    "type": "string"
+                },
+                "started_at": {
+                    "description": "Время старта (nil если ещё не стартовал).",
+                    "type": "string"
+                },
+                "status": {
+                    "description": "Текущий статус.",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/models.TestRunStatus"
+                        }
+                    ]
+                }
+            }
+        },
+        "models.TestRunStatus": {
+            "type": "string",
+            "enum": [
+                "pending",
+                "running",
+                "stopped",
+                "finished",
+                "failed"
+            ],
+            "x-enum-comments": {
+                "StatusFailed": "Завершён с ошибкой.",
+                "StatusFinished": "Завершён штатно.",
+                "StatusPending": "Ожидает запуска.",
+                "StatusRunning": "Выполняется прямо сейчас.",
+                "StatusStopped": "Остановлен вручную."
+            },
+            "x-enum-descriptions": [
+                "Ожидает запуска.",
+                "Выполняется прямо сейчас.",
+                "Остановлен вручную.",
+                "Завершён штатно.",
+                "Завершён с ошибкой."
+            ],
+            "x-enum-varnames": [
+                "StatusPending",
+                "StatusRunning",
+                "StatusStopped",
+                "StatusFinished",
+                "StatusFailed"
+            ]
+        },
+        "models.TestRunSummary": {
+            "type": "object",
+            "properties": {
+                "avg_latency_ms": {
+                    "type": "number"
+                },
+                "failed_calls": {
+                    "type": "integer"
+                },
+                "max_latency_ms": {
+                    "type": "number"
+                },
+                "p95_latency_ms": {
+                    "type": "number"
+                },
+                "p99_latency_ms": {
+                    "type": "number"
+                },
+                "run_id": {
+                    "type": "string"
+                },
+                "success_calls": {
+                    "type": "integer"
+                },
+                "total_bytes_in": {
+                    "type": "integer"
+                },
+                "total_bytes_out": {
+                    "type": "integer"
+                },
+                "total_calls": {
+                    "type": "integer"
+                }
+            }
+        },
         "models.TestScenario": {
             "type": "object",
             "properties": {
@@ -429,6 +764,17 @@
                 "total_duration": {
                     "description": "Общая длительность в секундах (защита от зависания).",
                     "type": "integer"
+                }
+            }
+        },
+        "models.TestWithStatus": {
+            "type": "object",
+            "properties": {
+                "run": {
+                    "$ref": "#/definitions/models.TestRun"
+                },
+                "scenario": {
+                    "$ref": "#/definitions/models.TestScenario"
                 }
             }
         }

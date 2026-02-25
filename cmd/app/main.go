@@ -14,6 +14,9 @@ import (
 
 	"github.com/sibhellyx/tester/internal/api"
 	"github.com/sibhellyx/tester/internal/api/handlers"
+	"github.com/sibhellyx/tester/internal/core/chaos"
+	"github.com/sibhellyx/tester/internal/core/load"
+	coordinator "github.com/sibhellyx/tester/internal/core/service"
 	"github.com/sibhellyx/tester/internal/database"
 	"github.com/sibhellyx/tester/internal/service"
 	"github.com/sibhellyx/tester/pkg/config"
@@ -51,34 +54,40 @@ func main() {
 
 	log.Info("Starting service", slog.String("port", currentCfg.App.Port))
 
-	// // Инициализация движка для нагрузочного тестирования.
-	// attacker := load.NewAttacker(10 * time.Second)
-	// loadEngine := load.NewEngine(log, attacker)
+	// Инициализация движка для нагрузочного тестирования.
+	attacker := load.NewAttacker(10 * time.Second)
+	loadEngine := load.NewEngine(log, attacker)
 
-	// // Инициализаци движка для стрессового тестирования.
-	// var chaosEngine *chaos.Engine
-	// dockerClient, err := chaos.NewDockerClient()
-	// if err != nil {
-	// 	log.Warn("Failed to connect to Docker. Chaos Engine disabled.", slog.String("error", err.Error()))
-	// } else {
-	// 	chaosEngine = chaos.NewEngine(log, dockerClient)
-	// 	log.Info("Chaos Engine initialized successfully")
-	// }
+	// Инициализаци движка для стрессового тестирования.
+	var chaosEngine *chaos.Engine
+	dockerClient, err := chaos.NewDockerClient()
+	if err != nil {
+		log.Warn("Failed to connect to Docker. Chaos Engine disabled.", slog.String("error", err.Error()))
+	} else {
+		chaosEngine = chaos.NewEngine(log, dockerClient)
+		log.Info("Chaos Engine initialized successfully")
+	}
 
-	// // Инициализация координатора для тестирования.
-	// coordinator := service.NewCoordinator(log, loadEngine, chaosEngine)
+	// Инициализация координатора для тестирования.
+	coordinator := coordinator.NewCoordinator(log, loadEngine, chaosEngine)
 
 	// // Запуск тестового сценария.
 	// go runDebugScenario(log, coordinator)
 
-	// Инициализация repository.
-	repository := database.NewPostgresRepository(log, db)
+	// Инициализация repository для управления сценариями.
+	scenarioRepository := database.NewScenarioRepository(log, db)
 	// Инициализация сервиса для управления сценариями.
-	scenarioService := service.NewTestManagementService(log, repository)
+	scenarioService := service.NewTestManagementService(log, scenarioRepository)
 	// Инициализация handler's для обработки запросов связанных со сценариями.
 	scenarioHandler := handlers.NewScenarioHandler(log, scenarioService)
-
-	router := api.NewRouter(scenarioHandler)
+	// Инициализация репозитория для запуска и хранения выполнения тестов.
+	runRepository := database.NewTestRunRepository(log, db)
+	// Инициализация сервиса для запуска и выполнения тестов.
+	runService := service.NewTestRunService(log, coordinator, runRepository, scenarioRepository)
+	// Инициализация handler для запуска тестов и управления.
+	runHandler := handlers.NewTestRunHandler(log, runService)
+	// Инициализация роутера.
+	router := api.NewRouter(scenarioHandler, runHandler)
 	// Создания и запуск веб-сервера.
 	server := &http.Server{
 		Addr:    currentCfg.App.Port,

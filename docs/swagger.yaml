@@ -114,6 +114,77 @@ definitions:
         description: Вероятность выполнения (в %).
         type: integer
     type: object
+  models.TestRun:
+    properties:
+      error:
+        description: Текст ошибки (если завершился с ошибкой).
+        type: string
+      finished_at:
+        description: Время завершения (nil если ещё идёт).
+        type: string
+      id:
+        description: UUID запуска.
+        type: string
+      scenario_id:
+        description: Ссылка на сценарий.
+        type: string
+      started_at:
+        description: Время старта (nil если ещё не стартовал).
+        type: string
+      status:
+        allOf:
+        - $ref: '#/definitions/models.TestRunStatus'
+        description: Текущий статус.
+    type: object
+  models.TestRunStatus:
+    enum:
+    - pending
+    - running
+    - stopped
+    - finished
+    - failed
+    type: string
+    x-enum-comments:
+      StatusFailed: Завершён с ошибкой.
+      StatusFinished: Завершён штатно.
+      StatusPending: Ожидает запуска.
+      StatusRunning: Выполняется прямо сейчас.
+      StatusStopped: Остановлен вручную.
+    x-enum-descriptions:
+    - Ожидает запуска.
+    - Выполняется прямо сейчас.
+    - Остановлен вручную.
+    - Завершён штатно.
+    - Завершён с ошибкой.
+    x-enum-varnames:
+    - StatusPending
+    - StatusRunning
+    - StatusStopped
+    - StatusFinished
+    - StatusFailed
+  models.TestRunSummary:
+    properties:
+      avg_latency_ms:
+        type: number
+      failed_calls:
+        type: integer
+      max_latency_ms:
+        type: number
+      p95_latency_ms:
+        type: number
+      p99_latency_ms:
+        type: number
+      run_id:
+        type: string
+      success_calls:
+        type: integer
+      total_bytes_in:
+        type: integer
+      total_bytes_out:
+        type: integer
+      total_calls:
+        type: integer
+    type: object
   models.TestScenario:
     properties:
       base_url:
@@ -134,9 +205,113 @@ definitions:
         description: Общая длительность в секундах (защита от зависания).
         type: integer
     type: object
+  models.TestWithStatus:
+    properties:
+      run:
+        $ref: '#/definitions/models.TestRun'
+      scenario:
+        $ref: '#/definitions/models.TestScenario'
+    type: object
 info:
   contact: {}
 paths:
+  /api/v1/runs/{run_id}:
+    get:
+      description: Возвращает текущий статус тестового прогона вместе со сценарием
+      parameters:
+      - description: ID запуска
+        in: path
+        name: run_id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/models.TestWithStatus'
+        "404":
+          description: Not Found
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      summary: Статус запуска
+      tags:
+      - runs
+  /api/v1/runs/{run_id}/stop:
+    post:
+      description: Принудительно останавливает активный тестовый прогон
+      parameters:
+      - description: ID запуска
+        in: path
+        name: run_id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "204":
+          description: No Content
+        "404":
+          description: Запуск не найден
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "409":
+          description: Тест уже не активен
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      summary: Остановить тест
+      tags:
+      - runs
+  /api/v1/runs/{run_id}/summary:
+    get:
+      description: Возвращает агрегированную статистику завершённого запуска
+      parameters:
+      - description: ID запуска
+        in: path
+        name: run_id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/models.TestRunSummary'
+        "404":
+          description: Not Found
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      summary: Итоги запуска
+      tags:
+      - runs
   /api/v1/scenarios:
     get:
       description: Возвращает список всех доступных сценариев
@@ -294,4 +469,63 @@ paths:
       summary: Обновить сценарий
       tags:
       - scenarios
+  /api/v1/scenarios/{id}/runs:
+    get:
+      description: Возвращает список всех запусков для данного сценария
+      parameters:
+      - description: ID сценария
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/models.TestRun'
+            type: array
+        "500":
+          description: Internal Server Error
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      summary: История запусков
+      tags:
+      - runs
+    post:
+      description: Запускает нагрузочное тестирование по ID сценария
+      parameters:
+      - description: ID сценария
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "202":
+          description: id запуска
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "404":
+          description: Сценарий не найден
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "500":
+          description: Внутренняя ошибка
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      summary: Запустить тест
+      tags:
+      - runs
 swagger: "2.0"
