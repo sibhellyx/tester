@@ -15,6 +15,38 @@ const docTemplate = `{
     "host": "{{.Host}}",
     "basePath": "{{.BasePath}}",
     "paths": {
+        "/api/v1/runs": {
+            "get": {
+                "description": "Возвращает все запуски со сценариями и статусами (дашборд)",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "results"
+                ],
+                "summary": "Список запусков с результатами",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/models.TestWithStatus"
+                            }
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    }
+                }
+            }
+        },
         "/api/v1/runs/{run_id}": {
             "get": {
                 "description": "Возвращает текущий статус тестового прогона вместе со сценарием",
@@ -39,6 +71,150 @@ const docTemplate = `{
                         "description": "OK",
                         "schema": {
                             "$ref": "#/definitions/models.TestWithStatus"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/runs/{run_id}/charts": {
+            "get": {
+                "description": "Возвращает только ChartData без полного отчёта (для отдельной загрузки графиков)",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "results"
+                ],
+                "summary": "Данные для графиков",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "ID запуска",
+                        "name": "run_id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/models.ChartData"
+                            }
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/runs/{run_id}/report": {
+            "get": {
+                "description": "Возвращает TestReport: summary-метрики, per-request метрики и данные графиков",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "results"
+                ],
+                "summary": "Полный отчёт по запуску",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "ID запуска",
+                        "name": "run_id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/models.TestReport"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/runs/{run_id}/report/download": {
+            "get": {
+                "description": "Генерирует CSV-файл отчёта и отдаёт его как вложение",
+                "produces": [
+                    "text/csv"
+                ],
+                "tags": [
+                    "results"
+                ],
+                "summary": "Скачать отчёт (CSV)",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "ID запуска",
+                        "name": "run_id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "file"
                         }
                     },
                     "404": {
@@ -550,6 +726,93 @@ const docTemplate = `{
                 "ChaosResource"
             ]
         },
+        "models.ChartData": {
+            "type": "object",
+            "properties": {
+                "labels": {
+                    "description": "метки по оси X (время, бакеты)",
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "series": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/models.Series"
+                    }
+                },
+                "title": {
+                    "type": "string"
+                },
+                "type": {
+                    "description": "\"line\", \"bar\", \"histogram\"",
+                    "type": "string"
+                }
+            }
+        },
+        "models.Metrics": {
+            "type": "object",
+            "properties": {
+                "avg_latency_ms": {
+                    "type": "integer"
+                },
+                "error_count": {
+                    "type": "integer"
+                },
+                "error_rate": {
+                    "description": "0.0 - 1.0",
+                    "type": "number"
+                },
+                "max_latency_ms": {
+                    "type": "integer"
+                },
+                "min_latency_ms": {
+                    "type": "integer"
+                },
+                "p50_ms": {
+                    "type": "integer"
+                },
+                "p90_ms": {
+                    "type": "integer"
+                },
+                "p95_ms": {
+                    "type": "integer"
+                },
+                "p99_ms": {
+                    "type": "integer"
+                },
+                "rps": {
+                    "type": "number"
+                },
+                "success_count": {
+                    "type": "integer"
+                },
+                "total_bytes_in": {
+                    "type": "integer"
+                },
+                "total_bytes_out": {
+                    "type": "integer"
+                },
+                "total_requests": {
+                    "type": "integer"
+                }
+            }
+        },
+        "models.Series": {
+            "type": "object",
+            "properties": {
+                "data": {
+                    "type": "array",
+                    "items": {
+                        "type": "number"
+                    }
+                },
+                "name": {
+                    "type": "string"
+                }
+            }
+        },
         "models.Stage": {
             "type": "object",
             "properties": {
@@ -611,6 +874,44 @@ const docTemplate = `{
                 "StageSteady",
                 "StageRampDown"
             ]
+        },
+        "models.TestReport": {
+            "type": "object",
+            "properties": {
+                "charts": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/models.ChartData"
+                    }
+                },
+                "end_time": {
+                    "type": "string"
+                },
+                "per_request": {
+                    "description": "метрики по каждому запросу",
+                    "type": "object",
+                    "additionalProperties": {
+                        "$ref": "#/definitions/models.Metrics"
+                    }
+                },
+                "run_id": {
+                    "type": "string"
+                },
+                "scenario_name": {
+                    "type": "string"
+                },
+                "start_time": {
+                    "type": "string"
+                },
+                "summary": {
+                    "description": "общая статистика",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/models.Metrics"
+                        }
+                    ]
+                }
+            }
         },
         "models.TestRequest": {
             "type": "object",

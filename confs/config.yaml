@@ -13,6 +13,9 @@ app:
   # Окружение: "development", "production", "stage"
   env: "development"
 
+  # Дирректория, куда будут складываться отчеты
+  dir: "./reports"
+
 # Настройки подключения к базе данных PostgreSQL
 db:
   # Data Source Name (строка подключения)

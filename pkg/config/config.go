@@ -23,6 +23,8 @@ type AppConfig struct {
 	Debug bool `mapstructure:"debug"`
 	// Env - окружение использования приложения.
 	Env string `mapstructure:"env"`
+	// Dir - путь до дирректории для хранения отчетов.
+	Dir string `mapstructure:"env"`
 }
 
 // DatabaseConfig - конфигурация для БД.

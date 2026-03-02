@@ -18,6 +18,7 @@ import (
 	"github.com/sibhellyx/tester/internal/core/coordinator"
 	"github.com/sibhellyx/tester/internal/core/load"
 	"github.com/sibhellyx/tester/internal/database"
+	"github.com/sibhellyx/tester/internal/processor"
 	"github.com/sibhellyx/tester/internal/service"
 	"github.com/sibhellyx/tester/pkg/config"
 	"github.com/sibhellyx/tester/pkg/logger"
@@ -71,9 +72,6 @@ func main() {
 	// Инициализация координатора для тестирования.
 	coordinator := coordinator.NewCoordinator(log, loadEngine, chaosEngine)
 
-	// // Запуск тестового сценария.
-	// go runDebugScenario(log, coordinator)
-
 	// Инициализация repository для управления сценариями.
 	scenarioRepository := database.NewScenarioRepository(log, db)
 	// Инициализация сервиса для управления сценариями.
@@ -86,8 +84,16 @@ func main() {
 	runService := service.NewTestRunService(log, coordinator, runRepository, scenarioRepository)
 	// Инициализация handler для запуска тестов и управления.
 	runHandler := handlers.NewTestRunHandler(log, runService)
+	// Инициализация процессора для обработки результатов.
+	resultProcessor := processor.NewResultProcessor()
+	// Инициализация репозитория для получения результатов тестирования.
+	resultRepository := database.NewTestResultsRepository(log, db)
+	// Инициализация сервиса получения результатов тестирования.
+	resultService := service.NewTestResultsService(log, resultRepository, resultProcessor, currentCfg.App.Dir)
+	// Инициализация handler's для обработки результатов.
+	resultHandler := handlers.NewTestResultsHandler(log, resultService)
 	// Инициализация роутера.
-	router := api.NewRouter(scenarioHandler, runHandler)
+	router := api.NewRouter(scenarioHandler, runHandler, resultHandler)
 	// Создания и запуск веб-сервера.
 	server := &http.Server{
 		Addr:    currentCfg.App.Port,

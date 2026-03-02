@@ -26,19 +26,32 @@ type TestRunHandlerInterface interface {
 	GetSummary(c *gin.Context) // GET  /runs/:run_id/summary
 }
 
+type TestResultsHandlerInterface interface {
+	GetReport(c *gin.Context)         // GET /runs/:run_id/report
+	GetChartData(c *gin.Context)      // GET /runs/:run_id/charts
+	GetReportFile(c *gin.Context)     // GET /runs/:run_id/report/download
+	GetListWithStatus(c *gin.Context) // GET /runs
+}
+
 // Router структура для хранения обработчиков.
 type Router struct {
 	router          *gin.Engine
 	scenarioHandler ScenarioHandlerInterface
 	runHandler      TestRunHandlerInterface
+	resultsHandler  TestResultsHandlerInterface
 }
 
 // NewRouter - создает роутер.
-func NewRouter(scenarioHandler ScenarioHandlerInterface, runHandler TestRunHandlerInterface) *Router {
+func NewRouter(
+	scenarioHandler ScenarioHandlerInterface,
+	runHandler TestRunHandlerInterface,
+	resultsHandler TestResultsHandlerInterface,
+) *Router {
 	return &Router{
 		router:          gin.Default(),
 		scenarioHandler: scenarioHandler,
 		runHandler:      runHandler,
+		resultsHandler:  resultsHandler,
 	}
 }
 
@@ -58,17 +71,24 @@ func (r *Router) SetupRoutes(logger *slog.Logger) *gin.Engine {
 			scenarios.PUT("/:id", r.scenarioHandler.UpdateScenario)
 			scenarios.DELETE("/:id", r.scenarioHandler.DeleteScenario)
 
-			// --- Запуски, вложенные в сценарий ---
-			scenarios.POST("/:id/runs", r.runHandler.StartTest) // запустить тест
-			scenarios.GET("/:id/runs", r.runHandler.ListRuns)   // история запусков
+			// Запуски, вложенные в сценарий.
+			scenarios.POST("/:id/runs", r.runHandler.StartTest)
+			scenarios.GET("/:id/runs", r.runHandler.ListRuns)
 		}
 
-		// --- Управление конкретным запуском ---
+		// --- Управление запусками и результаты ---
 		runs := v1.Group("/runs")
 		{
-			runs.GET("/:run_id", r.runHandler.GetStatus)          // статус
+			// Управление (TestRunHandler).
+			runs.GET("", r.resultsHandler.GetListWithStatus)      // дашборд всех запусков
+			runs.GET("/:run_id", r.runHandler.GetStatus)          // статус конкретного
 			runs.POST("/:run_id/stop", r.runHandler.StopTest)     // остановить
-			runs.GET("/:run_id/summary", r.runHandler.GetSummary) // итоговая статистика
+			runs.GET("/:run_id/summary", r.runHandler.GetSummary) // быстрая сводка из БД
+
+			// Результаты (TestResultsHandler).
+			runs.GET("/:run_id/report", r.resultsHandler.GetReport)              // полный отчёт (JSON)
+			runs.GET("/:run_id/charts", r.resultsHandler.GetChartData)           // только графики
+			runs.GET("/:run_id/report/download", r.resultsHandler.GetReportFile) // скачать CSV
 		}
 	}
 

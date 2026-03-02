@@ -42,6 +42,64 @@ definitions:
     - ChaosNetworkDelay
     - ChaosPacketLoss
     - ChaosResource
+  models.ChartData:
+    properties:
+      labels:
+        description: метки по оси X (время, бакеты)
+        items:
+          type: string
+        type: array
+      series:
+        items:
+          $ref: '#/definitions/models.Series'
+        type: array
+      title:
+        type: string
+      type:
+        description: '"line", "bar", "histogram"'
+        type: string
+    type: object
+  models.Metrics:
+    properties:
+      avg_latency_ms:
+        type: integer
+      error_count:
+        type: integer
+      error_rate:
+        description: 0.0 - 1.0
+        type: number
+      max_latency_ms:
+        type: integer
+      min_latency_ms:
+        type: integer
+      p50_ms:
+        type: integer
+      p90_ms:
+        type: integer
+      p95_ms:
+        type: integer
+      p99_ms:
+        type: integer
+      rps:
+        type: number
+      success_count:
+        type: integer
+      total_bytes_in:
+        type: integer
+      total_bytes_out:
+        type: integer
+      total_requests:
+        type: integer
+    type: object
+  models.Series:
+    properties:
+      data:
+        items:
+          type: number
+        type: array
+      name:
+        type: string
+    type: object
   models.Stage:
     properties:
       chaos_events:
@@ -86,6 +144,30 @@ definitions:
     - StageRampUp
     - StageSteady
     - StageRampDown
+  models.TestReport:
+    properties:
+      charts:
+        items:
+          $ref: '#/definitions/models.ChartData'
+        type: array
+      end_time:
+        type: string
+      per_request:
+        additionalProperties:
+          $ref: '#/definitions/models.Metrics'
+        description: метрики по каждому запросу
+        type: object
+      run_id:
+        type: string
+      scenario_name:
+        type: string
+      start_time:
+        type: string
+      summary:
+        allOf:
+        - $ref: '#/definitions/models.Metrics'
+        description: общая статистика
+    type: object
   models.TestRequest:
     properties:
       body:
@@ -215,6 +297,27 @@ definitions:
 info:
   contact: {}
 paths:
+  /api/v1/runs:
+    get:
+      description: Возвращает все запуски со сценариями и статусами (дашборд)
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/models.TestWithStatus'
+            type: array
+        "500":
+          description: Internal Server Error
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      summary: Список запусков с результатами
+      tags:
+      - results
   /api/v1/runs/{run_id}:
     get:
       description: Возвращает текущий статус тестового прогона вместе со сценарием
@@ -246,6 +349,103 @@ paths:
       summary: Статус запуска
       tags:
       - runs
+  /api/v1/runs/{run_id}/charts:
+    get:
+      description: Возвращает только ChartData без полного отчёта (для отдельной загрузки
+        графиков)
+      parameters:
+      - description: ID запуска
+        in: path
+        name: run_id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/models.ChartData'
+            type: array
+        "404":
+          description: Not Found
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      summary: Данные для графиков
+      tags:
+      - results
+  /api/v1/runs/{run_id}/report:
+    get:
+      description: 'Возвращает TestReport: summary-метрики, per-request метрики и
+        данные графиков'
+      parameters:
+      - description: ID запуска
+        in: path
+        name: run_id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/models.TestReport'
+        "404":
+          description: Not Found
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      summary: Полный отчёт по запуску
+      tags:
+      - results
+  /api/v1/runs/{run_id}/report/download:
+    get:
+      description: Генерирует CSV-файл отчёта и отдаёт его как вложение
+      parameters:
+      - description: ID запуска
+        in: path
+        name: run_id
+        required: true
+        type: string
+      produces:
+      - text/csv
+      responses:
+        "200":
+          description: OK
+          schema:
+            type: file
+        "404":
+          description: Not Found
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      summary: Скачать отчёт (CSV)
+      tags:
+      - results
   /api/v1/runs/{run_id}/stop:
     post:
       description: Принудительно останавливает активный тестовый прогон
