@@ -28,7 +28,7 @@ type Stage struct {
 	TargetUsers int           `json:"target_users"` // Целевое количество пользователей (VU) к концу этапа.
 	Requests    []TestRequest `json:"requests"`     // Набор запросов для этого этапа (с весами).
 
-	// Хаос-инжиниринг (будет добавлено позже).
+	// Хаос-инжиниринг.
 	ChaosEvents []ChaosParams `json:"chaos_events,omitempty"`
 }
 

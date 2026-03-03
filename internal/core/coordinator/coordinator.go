@@ -3,6 +3,7 @@ package coordinator
 import (
 	"context"
 	"log/slog"
+	"strings"
 	"sync"
 
 	"github.com/sibhellyx/tester/internal/models"
@@ -39,6 +40,8 @@ func (c *Coordinator) RunTest(ctx context.Context, scenario models.TestScenario)
 	if err := scenario.Validate(); err != nil {
 		return nil, err
 	}
+	// склеивание baseUrl with request path.
+	scenario = *baseUrlWithPathRequest(&scenario)
 
 	results := make(chan models.CallResult, 1000)
 
@@ -79,4 +82,15 @@ func (c *Coordinator) runStage(ctx context.Context, stage models.Stage, results 
 	c.loadEngine.ExecuteStage(ctx, stage, results)
 
 	c.logger.Info("Stage finished")
+}
+
+func baseUrlWithPathRequest(scenario *models.TestScenario) *models.TestScenario {
+	base := strings.TrimRight(scenario.BaseURL, "/")
+	for i := range scenario.Stages {
+		for j := range scenario.Stages[i].Requests {
+			path := scenario.Stages[i].Requests[j].Path
+			scenario.Stages[i].Requests[j].Path = base + "/" + strings.TrimLeft(path, "/")
+		}
+	}
+	return scenario
 }
