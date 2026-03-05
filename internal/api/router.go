@@ -3,11 +3,11 @@ package api
 import (
 	"log/slog"
 
-	swaggerFiles "github.com/swaggo/files"
-	ginSwagger "github.com/swaggo/gin-swagger"
-
+	cors "github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
 	_ "github.com/sibhellyx/tester/docs"
+	swaggerFiles "github.com/swaggo/files"
+	ginSwagger "github.com/swaggo/gin-swagger"
 )
 
 type ScenarioHandlerInterface interface {
@@ -57,6 +57,12 @@ func NewRouter(
 
 func (r *Router) SetupRoutes(logger *slog.Logger) *gin.Engine {
 	r.router.Use(gin.Recovery())
+	// for allow requests from frontend
+	r.router.Use(cors.New(cors.Config{
+		AllowOrigins: []string{"http://localhost:5173"},
+		AllowMethods: []string{"GET", "POST", "PUT", "DELETE"},
+		AllowHeaders: []string{"Content-Type"},
+	}))
 
 	r.router.GET("/swagger/*any", ginSwagger.WrapHandler(swaggerFiles.Handler))
 
