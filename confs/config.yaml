@@ -20,7 +20,7 @@ app:
 db:
   # Data Source Name (строка подключения)
   # Формат: postgres://<user>:<password>@<host>:<port>/<dbname>?sslmode=<mode>
-  dsn: "postgres://postgres:postgres@postgres:5432/tester_db?sslmode=disable"
+  dsn: "postgres://postgres:postgres@localhost:5432/tester_db?sslmode=disable"
 
 # Настройки логирования (используются в pkg/logger)
 log:
