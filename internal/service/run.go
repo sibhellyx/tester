@@ -146,8 +146,10 @@ func (s *TestRunService) executeRun(
 		if len(batch) == 0 {
 			return
 		}
+		saveCtx, saveCancel := context.WithTimeout(context.Background(), 10*time.Second)
+		defer saveCancel()
 		// Используем Background т.к. ctx теста мог быть отменён.
-		if saveErr := s.runRepo.SaveResults(context.Background(), runID, batch); saveErr != nil {
+		if saveErr := s.runRepo.SaveResults(saveCtx, runID, batch); saveErr != nil {
 			s.logger.Error("Failed to save results batch",
 				slog.String("run_id", runID),
 				slog.String("error", saveErr.Error()),
