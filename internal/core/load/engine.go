@@ -18,7 +18,6 @@ type AttackerToolInterface interface {
 type Engine struct {
 	logger   *slog.Logger          // вывод logs.
 	attacker AttackerToolInterface // инструмент для выполнения запроса.
-	wg       sync.WaitGroup        // для координации тестированния.
 }
 
 // NewEngine - создает оркестратор нагрузочного тестирования.
@@ -81,20 +80,21 @@ func (e *Engine) ExecuteStage(
 	// Контекст этапа с отменой по длительности этапа.
 	stageCtx, cancel := context.WithTimeout(ctx, time.Duration(stage.Duration)*time.Second)
 	defer cancel()
-
+	// Локальный sync group, чтобы не было переиспользования на одного и того же.
+	var wg sync.WaitGroup
 	// выполнение этапа в соответствие с типом его тестирования.
 	switch stage.Type {
 	case models.StageSteady:
-		e.wg.Add(stage.TargetUsers)
+		wg.Add(stage.TargetUsers)
 		for i := 0; i < stage.TargetUsers; i++ {
-			go RunVirtualUser(stageCtx, &e.wg, generatorForStage, e.attacker, results)
+			go RunVirtualUser(stageCtx, &wg, generatorForStage, e.attacker, results)
 		}
 	default:
 		e.logger.Warn("Unknown stage type", slog.String("type", string(stage.Type)))
 	}
 	done := make(chan struct{})
 	go func() {
-		e.wg.Wait()
+		wg.Wait()
 		close(done)
 	}()
 
@@ -114,7 +114,7 @@ func (e *Engine) ExecuteStage(
 			)
 		}
 		// Ждем завершения всех горутин.
-		e.wg.Wait()
+		wg.Wait()
 	case <-done:
 		// Все пользователи завершились раньше таймаута.
 		e.logger.Info("Stage completed",
