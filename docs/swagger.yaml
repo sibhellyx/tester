@@ -1,4 +1,15 @@
 definitions:
+  chaos.ContainerInfo:
+    properties:
+      id:
+        type: string
+      image:
+        type: string
+      name:
+        type: string
+      status:
+        type: string
+    type: object
   models.ChaosParams:
     properties:
       cpu_quota:
@@ -103,7 +114,7 @@ definitions:
   models.Stage:
     properties:
       chaos_events:
-        description: Хаос-инжиниринг (будет добавлено позже).
+        description: Хаос-инжиниринг.
         items:
           $ref: '#/definitions/models.ChaosParams'
         type: array
@@ -297,6 +308,27 @@ definitions:
 info:
   contact: {}
 paths:
+  /api/v1/containers:
+    get:
+      description: Возвращает список запущенных Docker-контейнеров доступных для chaos-тестирования
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/chaos.ContainerInfo'
+            type: array
+        "500":
+          description: Internal Server Error
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      summary: Список контейнеров
+      tags:
+      - chaos
   /api/v1/runs:
     get:
       description: Возвращает все запуски со сценариями и статусами (дашборд)

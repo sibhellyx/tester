@@ -15,6 +15,38 @@ const docTemplate = `{
     "host": "{{.Host}}",
     "basePath": "{{.BasePath}}",
     "paths": {
+        "/api/v1/containers": {
+            "get": {
+                "description": "Возвращает список запущенных Docker-контейнеров доступных для chaos-тестирования",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "chaos"
+                ],
+                "summary": "Список контейнеров",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/chaos.ContainerInfo"
+                            }
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    }
+                }
+            }
+        },
         "/api/v1/runs": {
             "get": {
                 "description": "Возвращает все запуски со сценариями и статусами (дашборд)",
@@ -666,6 +698,23 @@ const docTemplate = `{
         }
     },
     "definitions": {
+        "chaos.ContainerInfo": {
+            "type": "object",
+            "properties": {
+                "id": {
+                    "type": "string"
+                },
+                "image": {
+                    "type": "string"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "status": {
+                    "type": "string"
+                }
+            }
+        },
         "models.ChaosParams": {
             "type": "object",
             "properties": {
@@ -817,7 +866,7 @@ const docTemplate = `{
             "type": "object",
             "properties": {
                 "chaos_events": {
-                    "description": "Хаос-инжиниринг (будет добавлено позже).",
+                    "description": "Хаос-инжиниринг.",
                     "type": "array",
                     "items": {
                         "$ref": "#/definitions/models.ChaosParams"

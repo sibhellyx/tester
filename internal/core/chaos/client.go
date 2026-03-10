@@ -4,10 +4,19 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"strings"
 
 	"github.com/moby/moby/api/types/container"
 	"github.com/moby/moby/client"
 )
+
+// ContainerInfo - информация о контейнере доступном для chaos-тестирования.
+type ContainerInfo struct {
+	ID     string
+	Name   string
+	Image  string
+	Status string
+}
 
 // DockerClient - структура обертка, для взаимодействия с контейнерами.
 type DockerClient struct {
@@ -107,4 +116,32 @@ func (c *DockerClient) UpdateResources(ctx context.Context, containerID string, 
 	}
 
 	return nil
+}
+
+// ListContainers возвращает список запущенных контейнеров.
+// Только running-контейнеры подходят для воспроизведения сбоев —
+// остановленные нельзя атаковать сетевыми командами или лимитами ресурсов.
+func (c *DockerClient) ListContainers(ctx context.Context) ([]ContainerInfo, error) {
+	containers, err := c.client.ContainerList(ctx, client.ContainerListOptions{
+		All: false, // только running, не stopped/paused
+	})
+	if err != nil {
+		return nil, fmt.Errorf("failed to list containers: %w", err)
+	}
+
+	result := make([]ContainerInfo, 0, len(containers.Items))
+	for _, ct := range containers.Items {
+		name := ct.ID[:12] // fallback если имён нет
+		if len(ct.Names) > 0 {
+			// Docker возвращает имена с ведущим "/", обрезаем.
+			name = strings.TrimPrefix(ct.Names[0], "/")
+		}
+		result = append(result, ContainerInfo{
+			ID:     ct.ID[:12], // короткий ID — удобнее для передачи в chaos events
+			Name:   name,
+			Image:  ct.Image,
+			Status: ct.Status,
+		})
+	}
+	return result, nil
 }

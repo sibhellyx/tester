@@ -16,6 +16,7 @@ type ScenarioHandlerInterface interface {
 	ListScenarios(c *gin.Context)
 	DeleteScenario(c *gin.Context)
 	UpdateScenario(c *gin.Context)
+	ListContainers(c *gin.Context)
 }
 
 type TestRunHandlerInterface interface {
@@ -95,6 +96,11 @@ func (r *Router) SetupRoutes(logger *slog.Logger) *gin.Engine {
 			runs.GET("/:run_id/report", r.resultsHandler.GetReport)              // полный отчёт (JSON)
 			runs.GET("/:run_id/charts", r.resultsHandler.GetChartData)           // только графики
 			runs.GET("/:run_id/report/download", r.resultsHandler.GetReportFile) // скачать CSV
+		}
+		// Для получения доступных контейнеров.
+		chaos := v1.Group("/chaos")
+		{
+			chaos.GET("/containers", r.scenarioHandler.ListContainers)
 		}
 	}
 

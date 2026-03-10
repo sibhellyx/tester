@@ -7,6 +7,7 @@ import (
 	"net/http"
 
 	"github.com/gin-gonic/gin"
+	"github.com/sibhellyx/tester/internal/core/chaos"
 	"github.com/sibhellyx/tester/internal/models"
 	"github.com/sibhellyx/tester/internal/service"
 )
@@ -18,6 +19,7 @@ type TestManagementServiceInterface interface {
 	ListScenarios(ctx context.Context) ([]models.TestScenario, error)
 	GetScenario(ctx context.Context, id string) (*models.TestScenario, error)
 	UpdateScenario(ctx context.Context, s models.TestScenario) error
+	ListContainers(ctx context.Context) ([]chaos.ContainerInfo, error)
 }
 
 // ScenarioHandler обрабатывает HTTP-запросы, связанные со сценариями.
@@ -205,4 +207,27 @@ func (h *ScenarioHandler) UpdateScenario(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, scenario)
+}
+
+// ListContainers godoc
+// @Summary      Список контейнеров
+// @Description  Возвращает список запущенных Docker-контейнеров доступных для chaos-тестирования
+// @Tags         chaos
+// @Produce      json
+// @Success      200  {array}   chaos.ContainerInfo
+// @Failure      500  {object}  map[string]string
+// @Router       /api/v1/containers [get]
+func (h *ScenarioHandler) ListContainers(c *gin.Context) {
+	containers, err := h.service.ListContainers(c.Request.Context())
+	if err != nil {
+		h.logger.Error("Failed to list containers", slog.String("error", err.Error()))
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch containers"})
+		return
+	}
+
+	if containers == nil {
+		containers = []chaos.ContainerInfo{}
+	}
+
+	c.JSON(http.StatusOK, containers)
 }

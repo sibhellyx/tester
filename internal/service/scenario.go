@@ -7,6 +7,7 @@ import (
 	"log/slog"
 
 	"github.com/google/uuid"
+	"github.com/sibhellyx/tester/internal/core/chaos"
 	"github.com/sibhellyx/tester/internal/models"
 )
 
@@ -16,6 +17,10 @@ var (
 	ErrInvalidScenario  = errors.New("scenario validation failed")
 	ErrRepoError        = errors.New("repository error")
 )
+
+type DockerClientInterface interface {
+	ListContainers(ctx context.Context) ([]chaos.ContainerInfo, error)
+}
 
 // ScenarioRepository определяет методы работы с БД.
 type ScenarioRepositoryInterface interface {
@@ -30,13 +35,15 @@ type ScenarioRepositoryInterface interface {
 type TestManagementService struct {
 	logger *slog.Logger
 	repo   ScenarioRepositoryInterface
+	client DockerClientInterface
 }
 
 // NewTestManagementService - конструктор.
-func NewTestManagementService(logger *slog.Logger, repo ScenarioRepositoryInterface) *TestManagementService {
+func NewTestManagementService(logger *slog.Logger, repo ScenarioRepositoryInterface, client DockerClientInterface) *TestManagementService {
 	return &TestManagementService{
 		logger: logger,
 		repo:   repo,
+		client: client,
 	}
 }
 
@@ -134,4 +141,9 @@ func (s *TestManagementService) DeleteScenario(ctx context.Context, id string) e
 
 	s.logger.Info("Scenario deleted", slog.String("id", id))
 	return nil
+}
+
+// ListContainers возвращает список запущенных в системе контейнеров.
+func (s *TestManagementService) ListContainers(ctx context.Context) ([]chaos.ContainerInfo, error) {
+	return s.client.ListContainers(ctx)
 }

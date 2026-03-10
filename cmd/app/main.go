@@ -75,7 +75,7 @@ func main() {
 	// Инициализация repository для управления сценариями.
 	scenarioRepository := database.NewScenarioRepository(log, db)
 	// Инициализация сервиса для управления сценариями.
-	scenarioService := service.NewTestManagementService(log, scenarioRepository)
+	scenarioService := service.NewTestManagementService(log, scenarioRepository, dockerClient)
 	// Инициализация handler's для обработки запросов связанных со сценариями.
 	scenarioHandler := handlers.NewScenarioHandler(log, scenarioService)
 	// Инициализация репозитория для запуска и хранения выполнения тестов.
