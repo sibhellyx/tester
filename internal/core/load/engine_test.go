@@ -11,8 +11,6 @@ import (
 	"github.com/sibhellyx/tester/internal/models"
 )
 
-// ── helpers ──────────────────────────────────────────────────────────────────
-
 type MockAttacker struct {
 	duration time.Duration
 	mu       sync.Mutex
@@ -65,7 +63,6 @@ func makeRequests() []models.TestRequest {
 	}
 }
 
-// ── NewEngine ─────────────────────────────────────────────────────────────────
 
 func TestNewEngine(t *testing.T) {
 	engine, attacker := newTestEngine()
@@ -75,9 +72,6 @@ func TestNewEngine(t *testing.T) {
 	if engine.attacker != attacker {
 		t.Error("attacker not set")
 	}
-	if engine.pool == nil {
-		t.Error("pool is nil")
-	}
 }
 
 // ── StageSteady ───────────────────────────────────────────────────────────────
@@ -85,6 +79,7 @@ func TestNewEngine(t *testing.T) {
 // Пользователи запускаются и производят результаты в течение длительности этапа.
 func TestExecuteStage_Steady_ProducesResults(t *testing.T) {
 	engine, _ := newTestEngine()
+	pool := NewUserPool()
 	results := makeResults()
 
 	stage := models.Stage{
@@ -92,11 +87,11 @@ func TestExecuteStage_Steady_ProducesResults(t *testing.T) {
 		Requests: makeRequests(),
 	}
 
-	engine.ExecuteStage(context.Background(), stage, results)
+	engine.ExecuteStage(context.Background(), stage, pool, results)
 
 	// Сначала останавливаем всех пользователей — они прекращают писать в results.
 	// Только после этого безопасно закрывать канал.
-	engine.pool.KillAll()
+	pool.KillAll()
 	close(results)
 
 	if n := drainResults(results); n == 0 {
@@ -107,6 +102,7 @@ func TestExecuteStage_Steady_ProducesResults(t *testing.T) {
 // Пул должен содержать ровно TargetUsers после завершения этапа.
 func TestExecuteStage_Steady_PoolSize(t *testing.T) {
 	engine, _ := newTestEngine()
+	pool := NewUserPool()
 	results := makeResults()
 
 	stage := models.Stage{
@@ -114,18 +110,19 @@ func TestExecuteStage_Steady_PoolSize(t *testing.T) {
 		Requests: makeRequests(),
 	}
 
-	engine.ExecuteStage(context.Background(), stage, results)
+	engine.ExecuteStage(context.Background(), stage, pool, results)
 
-	if got := engine.pool.Len(); got != 5 {
+	if got := pool.Len(); got != 5 {
 		t.Errorf("expected pool size 5, got %d", got)
 	}
 
-	engine.pool.KillAll()
+	pool.KillAll()
 }
 
 // Если пользователей уже больше TargetUsers — лишние должны быть убиты.
 func TestExecuteStage_Steady_KillsExcessUsers(t *testing.T) {
 	engine, _ := newTestEngine()
+	pool := NewUserPool()
 	results := makeResults()
 
 	// Сначала запускаем 5 пользователей.
@@ -133,8 +130,8 @@ func TestExecuteStage_Steady_KillsExcessUsers(t *testing.T) {
 		ID: 1, Type: models.StageSteady, Duration: 1, TargetUsers: 5,
 		Requests: makeRequests(),
 	}
-	engine.ExecuteStage(context.Background(), stage1, results)
-	if got := engine.pool.Len(); got != 5 {
+	engine.ExecuteStage(context.Background(), stage1, pool, results)
+	if got := pool.Len(); got != 5 {
 		t.Fatalf("setup: expected 5 users, got %d", got)
 	}
 
@@ -143,35 +140,36 @@ func TestExecuteStage_Steady_KillsExcessUsers(t *testing.T) {
 		ID: 2, Type: models.StageSteady, Duration: 1, TargetUsers: 2,
 		Requests: makeRequests(),
 	}
-	engine.ExecuteStage(context.Background(), stage2, results)
+	engine.ExecuteStage(context.Background(), stage2, pool, results)
 
-	if got := engine.pool.Len(); got != 2 {
+	if got := pool.Len(); got != 2 {
 		t.Errorf("expected pool size 2 after kill, got %d", got)
 	}
 
-	engine.pool.KillAll()
+	pool.KillAll()
 }
 
 // Если количество пользователей уже равно TargetUsers — ничего не меняется.
 func TestExecuteStage_Steady_NoChangeWhenAtTarget(t *testing.T) {
 	engine, _ := newTestEngine()
+	pool := NewUserPool()
 	results := makeResults()
 
 	stage := models.Stage{
 		ID: 1, Type: models.StageSteady, Duration: 1, TargetUsers: 3,
 		Requests: makeRequests(),
 	}
-	engine.ExecuteStage(context.Background(), stage, results)
-	before := engine.pool.Len()
+	engine.ExecuteStage(context.Background(), stage, pool, results)
+	before := pool.Len()
 
-	engine.ExecuteStage(context.Background(), stage, results)
-	after := engine.pool.Len()
+	engine.ExecuteStage(context.Background(), stage, pool, results)
+	after := pool.Len()
 
 	if before != after {
 		t.Errorf("pool size changed from %d to %d, expected no change", before, after)
 	}
 
-	engine.pool.KillAll()
+	pool.KillAll()
 }
 
 // ── StageRampUp ───────────────────────────────────────────────────────────────
@@ -179,6 +177,7 @@ func TestExecuteStage_Steady_NoChangeWhenAtTarget(t *testing.T) {
 // После RampUp пул должен содержать TargetUsers пользователей.
 func TestExecuteStage_RampUp_ReachesTarget(t *testing.T) {
 	engine, _ := newTestEngine()
+	pool := NewUserPool()
 	results := makeResults()
 
 	stage := models.Stage{
@@ -186,18 +185,19 @@ func TestExecuteStage_RampUp_ReachesTarget(t *testing.T) {
 		Requests: makeRequests(),
 	}
 
-	engine.ExecuteStage(context.Background(), stage, results)
+	engine.ExecuteStage(context.Background(), stage, pool, results)
 
-	if got := engine.pool.Len(); got != 4 {
+	if got := pool.Len(); got != 4 {
 		t.Errorf("expected 4 users after ramp-up, got %d", got)
 	}
 
-	engine.pool.KillAll()
+	pool.KillAll()
 }
 
 // Пользователи из RampUp переживают этап и продолжают работу на следующем Steady.
 func TestExecuteStage_RampUp_UsersSurviveIntoSteady(t *testing.T) {
 	engine, _ := newTestEngine()
+	pool := NewUserPool()
 	results := makeResults()
 
 	rampUp := models.Stage{
@@ -209,11 +209,11 @@ func TestExecuteStage_RampUp_UsersSurviveIntoSteady(t *testing.T) {
 		Requests: makeRequests(),
 	}
 
-	engine.ExecuteStage(context.Background(), rampUp, results)
-	afterRampUp := engine.pool.Len()
+	engine.ExecuteStage(context.Background(), rampUp, pool, results)
+	afterRampUp := pool.Len()
 
-	engine.ExecuteStage(context.Background(), steady, results)
-	afterSteady := engine.pool.Len()
+	engine.ExecuteStage(context.Background(), steady, pool, results)
+	afterSteady := pool.Len()
 
 	// Steady не должен убивать и пересоздавать пользователей — дельта = 0.
 	if afterRampUp != 3 {
@@ -223,12 +223,13 @@ func TestExecuteStage_RampUp_UsersSurviveIntoSteady(t *testing.T) {
 		t.Errorf("expected 3 users after steady (no change), got %d", afterSteady)
 	}
 
-	engine.pool.KillAll()
+	pool.KillAll()
 }
 
 // Если пул уже >= TargetUsers — RampUp ничего не добавляет.
 func TestExecuteStage_RampUp_NoOpWhenAtOrAboveTarget(t *testing.T) {
 	engine, _ := newTestEngine()
+	pool := NewUserPool()
 	results := makeResults()
 
 	// Сначала steady до 5.
@@ -236,20 +237,20 @@ func TestExecuteStage_RampUp_NoOpWhenAtOrAboveTarget(t *testing.T) {
 		ID: 1, Type: models.StageSteady, Duration: 1, TargetUsers: 5,
 		Requests: makeRequests(),
 	}
-	engine.ExecuteStage(context.Background(), setup, results)
+	engine.ExecuteStage(context.Background(), setup, pool, results)
 
 	// RampUp до 3 — должен быть no-op.
 	rampUp := models.Stage{
 		ID: 2, Type: models.StageRampUp, Duration: 1, TargetUsers: 3,
 		Requests: makeRequests(),
 	}
-	engine.ExecuteStage(context.Background(), rampUp, results)
+	engine.ExecuteStage(context.Background(), rampUp, pool, results)
 
-	if got := engine.pool.Len(); got != 5 {
+	if got := pool.Len(); got != 5 {
 		t.Errorf("expected pool size unchanged at 5, got %d", got)
 	}
 
-	engine.pool.KillAll()
+	pool.KillAll()
 }
 
 // ── StageRampDown ─────────────────────────────────────────────────────────────
@@ -257,55 +258,58 @@ func TestExecuteStage_RampUp_NoOpWhenAtOrAboveTarget(t *testing.T) {
 // После RampDown пул должен содержать TargetUsers пользователей.
 func TestExecuteStage_RampDown_ReachesTarget(t *testing.T) {
 	engine, _ := newTestEngine()
+	pool := NewUserPool()
 	results := makeResults()
 
 	setup := models.Stage{
 		ID: 1, Type: models.StageSteady, Duration: 1, TargetUsers: 5,
 		Requests: makeRequests(),
 	}
-	engine.ExecuteStage(context.Background(), setup, results)
+	engine.ExecuteStage(context.Background(), setup, pool, results)
 
 	rampDown := models.Stage{
 		ID: 2, Type: models.StageRampDown, Duration: 1, TargetUsers: 2,
 		Requests: makeRequests(),
 	}
-	engine.ExecuteStage(context.Background(), rampDown, results)
+	engine.ExecuteStage(context.Background(), rampDown, pool, results)
 
-	if got := engine.pool.Len(); got != 2 {
+	if got := pool.Len(); got != 2 {
 		t.Errorf("expected 2 users after ramp-down, got %d", got)
 	}
 
-	engine.pool.KillAll()
+	pool.KillAll()
 }
 
 // Если пул уже <= TargetUsers — RampDown ничего не убивает.
 func TestExecuteStage_RampDown_NoOpWhenAtOrBelowTarget(t *testing.T) {
 	engine, _ := newTestEngine()
+	pool := NewUserPool()
 	results := makeResults()
 
 	setup := models.Stage{
 		ID: 1, Type: models.StageSteady, Duration: 1, TargetUsers: 2,
 		Requests: makeRequests(),
 	}
-	engine.ExecuteStage(context.Background(), setup, results)
+	engine.ExecuteStage(context.Background(), setup, pool, results)
 
 	rampDown := models.Stage{
 		ID: 2, Type: models.StageRampDown, Duration: 1, TargetUsers: 5,
 		Requests: makeRequests(),
 	}
-	engine.ExecuteStage(context.Background(), rampDown, results)
+	engine.ExecuteStage(context.Background(), rampDown, pool, results)
 
-	if got := engine.pool.Len(); got != 2 {
+	if got := pool.Len(); got != 2 {
 		t.Errorf("expected pool size unchanged at 2, got %d", got)
 	}
 
-	engine.pool.KillAll()
+	pool.KillAll()
 }
 
 // ── Полный сценарий RampUp → Steady → RampDown ────────────────────────────────
 
 func TestExecuteStage_FullLifecycle(t *testing.T) {
 	engine, _ := newTestEngine()
+	pool := NewUserPool()
 	results := makeResults()
 
 	ctx := context.Background()
@@ -317,10 +321,10 @@ func TestExecuteStage_FullLifecycle(t *testing.T) {
 	}
 
 	for _, stage := range stages {
-		engine.ExecuteStage(ctx, stage, results)
+		engine.ExecuteStage(ctx, stage, pool, results)
 	}
 
-	if got := engine.pool.Len(); got != 0 {
+	if got := pool.Len(); got != 0 {
 		t.Errorf("expected 0 users after full ramp-down, got %d", got)
 	}
 }
@@ -330,6 +334,7 @@ func TestExecuteStage_FullLifecycle(t *testing.T) {
 // При отмене ctx ExecuteStage должен завершиться быстро.
 func TestExecuteStage_ContextCancel_ExitsQuickly(t *testing.T) {
 	engine, _ := newTestEngine()
+	pool := NewUserPool()
 	results := makeResults()
 
 	ctx, cancel := context.WithCancel(context.Background())
@@ -342,20 +347,21 @@ func TestExecuteStage_ContextCancel_ExitsQuickly(t *testing.T) {
 	time.AfterFunc(200*time.Millisecond, cancel)
 
 	start := time.Now()
-	engine.ExecuteStage(ctx, stage, results)
+	engine.ExecuteStage(ctx, stage, pool, results)
 	elapsed := time.Since(start)
 
 	if elapsed >= 2*time.Second {
 		t.Errorf("expected fast exit on cancel, took %v", elapsed)
 	}
 
-	engine.pool.KillAll()
+	pool.KillAll()
 }
 
 // ── Неизвестный тип этапа ─────────────────────────────────────────────────────
 
 func TestExecuteStage_UnknownType_NoResults(t *testing.T) {
 	engine, attacker := newTestEngine()
+	pool := NewUserPool()
 	results := makeResults()
 
 	stage := models.Stage{
@@ -363,13 +369,13 @@ func TestExecuteStage_UnknownType_NoResults(t *testing.T) {
 		Requests: makeRequests(),
 	}
 
-	engine.ExecuteStage(context.Background(), stage, results)
+	engine.ExecuteStage(context.Background(), stage, pool, results)
 	close(results)
 
 	if attacker.Calls() != 0 {
 		t.Errorf("expected 0 calls for unknown stage type, got %d", attacker.Calls())
 	}
-	if got := engine.pool.Len(); got != 0 {
+	if got := pool.Len(); got != 0 {
 		t.Errorf("expected empty pool for unknown stage type, got %d", got)
 	}
 }
@@ -379,6 +385,7 @@ func TestExecuteStage_UnknownType_NoResults(t *testing.T) {
 // Если список запросов пустой — ExecuteStage должен вернуться без паники.
 func TestExecuteStage_EmptyRequests_NoOp(t *testing.T) {
 	engine, _ := newTestEngine()
+	pool := NewUserPool()
 	results := makeResults()
 
 	stage := models.Stage{
@@ -387,10 +394,10 @@ func TestExecuteStage_EmptyRequests_NoOp(t *testing.T) {
 	}
 
 	// Не должно быть паники.
-	engine.ExecuteStage(context.Background(), stage, results)
+	engine.ExecuteStage(context.Background(), stage, pool, results)
 	close(results)
 
-	if got := engine.pool.Len(); got != 0 {
+	if got := pool.Len(); got != 0 {
 		t.Errorf("expected empty pool on generator error, got %d", got)
 	}
 }

@@ -6,6 +6,7 @@ import (
 	"strings"
 	"sync"
 
+	"github.com/sibhellyx/tester/internal/core/load"
 	"github.com/sibhellyx/tester/internal/models"
 )
 
@@ -14,8 +15,8 @@ type ChaosEngineInterface interface {
 }
 
 type LoadEngineInterface interface {
-	ExecuteStage(ctx context.Context, stage models.Stage, results chan<- models.CallResult)
-	Shutdown()
+	ExecuteStage(ctx context.Context, stage models.Stage, pool *load.UserPool, results chan<- models.CallResult)
+	Shutdown(pool *load.UserPool)
 }
 
 // Coordinator управляет всем тестом: и нагрузкой, и хаосом.
@@ -48,27 +49,30 @@ func (c *Coordinator) RunTest(ctx context.Context, scenario models.TestScenario)
 
 	go func() {
 		defer close(results)
+
+		pool := load.NewUserPool()
+
 		c.logger.Info("Coordinator started test", slog.String("id", scenario.ID))
 
 		for _, stage := range scenario.Stages {
 			select {
 			case <-ctx.Done():
-				c.loadEngine.Shutdown()
+				c.loadEngine.Shutdown(pool)
 				return
 			default:
 			}
 
-			c.runStage(ctx, stage, results)
+			c.runStage(ctx, stage, pool, results)
 		}
 
-		c.loadEngine.Shutdown()
+		c.loadEngine.Shutdown(pool)
 		c.logger.Info("Coordinator finished test")
 	}()
 
 	return results, nil
 }
 
-func (c *Coordinator) runStage(ctx context.Context, stage models.Stage, results chan<- models.CallResult) {
+func (c *Coordinator) runStage(ctx context.Context, stage models.Stage, pool *load.UserPool, results chan<- models.CallResult) {
 	c.logger.Info("Coordinator starting stage", slog.Int("id", stage.ID))
 
 	// Запускаем Хаос (если есть события)
@@ -82,7 +86,7 @@ func (c *Coordinator) runStage(ctx context.Context, stage models.Stage, results 
 	// Запускаем Нагрузку.
 	// LoadEngine будет работать ровно stage.Duration.
 	// ChaosEngine будет работать параллельно.
-	c.loadEngine.ExecuteStage(ctx, stage, results)
+	c.loadEngine.ExecuteStage(ctx, stage, pool, results)
 
 	c.logger.Info("Stage finished")
 }

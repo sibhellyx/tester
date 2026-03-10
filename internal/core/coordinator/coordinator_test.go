@@ -8,6 +8,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/sibhellyx/tester/internal/core/load"
 	"github.com/sibhellyx/tester/internal/models"
 )
 
@@ -17,7 +18,7 @@ type MockLoadEngine struct {
 	CalledStages []int // Записываем ID этапов, которые были запущены
 }
 
-func (m *MockLoadEngine) ExecuteStage(ctx context.Context, stage models.Stage, results chan<- models.CallResult) {
+func (m *MockLoadEngine) ExecuteStage(ctx context.Context, stage models.Stage, pool *load.UserPool, results chan<- models.CallResult) {
 	m.mu.Lock()
 	m.CalledStages = append(m.CalledStages, stage.ID)
 	m.mu.Unlock()
@@ -36,7 +37,7 @@ func (m *MockLoadEngine) ExecuteStage(ctx context.Context, stage models.Stage, r
 	}
 }
 
-func (m *MockLoadEngine) Shutdown() {
+func (m *MockLoadEngine) Shutdown(pool *load.UserPool) {
 	// Заглушка для интерфейса.
 }
 

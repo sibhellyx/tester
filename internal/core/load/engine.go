@@ -18,7 +18,6 @@ type AttackerToolInterface interface {
 type Engine struct {
 	logger   *slog.Logger
 	attacker AttackerToolInterface
-	pool     *userPool // пул пользователей, живёт на протяжении всего теста
 }
 
 // NewEngine создаёт оркестратор нагрузочного тестирования.
@@ -26,7 +25,6 @@ func NewEngine(logger *slog.Logger, attacker AttackerToolInterface) *Engine {
 	return &Engine{
 		logger:   logger,
 		attacker: attacker,
-		pool:     newUserPool(),
 	}
 }
 
@@ -39,6 +37,7 @@ func NewEngine(logger *slog.Logger, attacker AttackerToolInterface) *Engine {
 func (e *Engine) ExecuteStage(
 	ctx context.Context,
 	stage models.Stage,
+	pool *UserPool,
 	results chan<- models.CallResult,
 ) {
 	e.logger.Info("Starting stage",
@@ -62,7 +61,7 @@ func (e *Engine) ExecuteStage(
 	case models.StageSteady:
 		// Выравниваем количество пользователей до TargetUsers.
 		// Если пользователей меньше — добавляем, если больше — убираем.
-		current := e.pool.Len()
+		current := pool.Len()
 		delta := stage.TargetUsers - current
 
 		switch {
@@ -72,7 +71,7 @@ func (e *Engine) ExecuteStage(
 				slog.Int("target", stage.TargetUsers),
 				slog.Int("spawning", delta),
 			)
-			e.pool.Spawn(ctx, delta, generator, e.attacker, results)
+			pool.Spawn(ctx, delta, generator, e.attacker, results)
 
 		case delta < 0:
 			e.logger.Info("Steady: killing excess users",
@@ -80,7 +79,7 @@ func (e *Engine) ExecuteStage(
 				slog.Int("target", stage.TargetUsers),
 				slog.Int("killing", -delta),
 			)
-			e.pool.Kill(-delta)
+			pool.Kill(-delta)
 
 		default:
 			e.logger.Info("Steady: user count already at target",
@@ -91,7 +90,7 @@ func (e *Engine) ExecuteStage(
 	case models.StageRampUp:
 		// Постепенно добавляем пользователей до TargetUsers в течение Duration.
 		// Интервал между добавлением = Duration / количество_новых_пользователей.
-		current := e.pool.Len()
+		current := pool.Len()
 		toAdd := stage.TargetUsers - current
 
 		if toAdd <= 0 {
@@ -123,9 +122,9 @@ func (e *Engine) ExecuteStage(
 				)
 				return
 			case <-ticker.C:
-				e.pool.Spawn(ctx, 1, generator, e.attacker, results)
+				pool.Spawn(ctx, 1, generator, e.attacker, results)
 				e.logger.Info("RampUp: user added",
-					slog.Int("current", e.pool.Len()),
+					slog.Int("current", pool.Len()),
 					slog.Int("target", stage.TargetUsers),
 				)
 			}
@@ -134,7 +133,7 @@ func (e *Engine) ExecuteStage(
 	case models.StageRampDown:
 		// Постепенно убираем пользователей до TargetUsers в течение Duration.
 		// Интервал между удалением = Duration / количество_удаляемых_пользователей.
-		current := e.pool.Len()
+		current := pool.Len()
 		toRemove := current - stage.TargetUsers
 
 		if toRemove <= 0 {
@@ -165,9 +164,9 @@ func (e *Engine) ExecuteStage(
 				)
 				return
 			case <-ticker.C:
-				e.pool.Kill(1)
+				pool.Kill(1)
 				e.logger.Info("RampDown: user removed",
-					slog.Int("current", e.pool.Len()),
+					slog.Int("current", pool.Len()),
 					slog.Int("target", stage.TargetUsers),
 				)
 			}
@@ -188,7 +187,7 @@ func (e *Engine) ExecuteStage(
 		e.logger.Info("Stage duration expired",
 			slog.Int("stage_id", stage.ID),
 			slog.Int("duration", stage.Duration),
-			slog.Int("active_users", e.pool.Len()),
+			slog.Int("active_users", pool.Len()),
 		)
 	}
 }
@@ -196,6 +195,6 @@ func (e *Engine) ExecuteStage(
 // Shutdown останавливает всех активных пользователей и ждёт их завершения.
 // Должен вызываться из Coordinator после завершения всех этапов,
 // строго перед закрытием канала results.
-func (e *Engine) Shutdown() {
-	e.pool.KillAll()
+func (e *Engine) Shutdown(pool *UserPool) {
+	pool.KillAll()
 }

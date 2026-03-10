@@ -18,20 +18,20 @@ type virtualUser struct {
 // userPool управляет жизненным циклом виртуальных пользователей.
 // Pool живёт на уровне Engine и сохраняет пользователей между этапами теста.
 // Это позволяет пользователям, запущенным на RampUp, продолжать работу на Steady.
-type userPool struct {
+type UserPool struct {
 	mu    sync.Mutex
 	users []*virtualUser
 	wg    sync.WaitGroup // единый WaitGroup на весь пул
 }
 
 // newUserPool создаёт пустой пул пользователей.
-func newUserPool() *userPool {
-	return &userPool{}
+func NewUserPool() *UserPool {
+	return &UserPool{}
 }
 
 // Len возвращает текущее количество активных пользователей.
 // Безопасен для конкурентного вызова.
-func (p *userPool) Len() int {
+func (p *UserPool) Len() int {
 	p.mu.Lock()
 	defer p.mu.Unlock()
 	return len(p.users)
@@ -44,7 +44,7 @@ func (p *userPool) Len() int {
 // Пользователь завершится только когда:
 //   - будет вызван его индивидуальный cancel (через Kill/KillAll)
 //   - будет отменён родительский ctx (StopTest / глобальный таймаут)
-func (p *userPool) Spawn(
+func (p *UserPool) Spawn(
 	ctx context.Context,
 	n int,
 	generator RequestGeneratorInterface,
@@ -82,7 +82,7 @@ func (p *userPool) Spawn(
 //
 // Метод блокируется до полного завершения всех отменённых горутин.
 // Это гарантирует что после возврата из Kill горутины не работают.
-func (p *userPool) Kill(n int) {
+func (p *UserPool) Kill(n int) {
 	p.mu.Lock()
 
 	current := len(p.users)
@@ -106,7 +106,7 @@ func (p *userPool) Kill(n int) {
 }
 
 // KillAll останавливает всех пользователей в пуле и ждёт завершения всех горутин.
-func (p *userPool) KillAll() {
+func (p *UserPool) KillAll() {
 	p.mu.Lock()
 	users := p.users
 	p.users = nil
