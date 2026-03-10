@@ -11,476 +11,386 @@ import (
 	"github.com/sibhellyx/tester/internal/models"
 )
 
-// MockAttacker для тестов
-type MockAttackerEngine struct {
-	ShootDuration time.Duration
-	mu            sync.Mutex
-	callCount     int
+// ── helpers ──────────────────────────────────────────────────────────────────
+
+type MockAttacker struct {
+	duration time.Duration
+	mu       sync.Mutex
+	calls    int
 }
 
-func (m *MockAttackerEngine) Shoot(requestModel models.TestRequest) models.CallResult {
+func (m *MockAttacker) Shoot(r models.TestRequest) models.CallResult {
 	m.mu.Lock()
-	m.callCount++
+	m.calls++
 	m.mu.Unlock()
-
-	if m.ShootDuration > 0 {
-		time.Sleep(m.ShootDuration)
+	if m.duration > 0 {
+		time.Sleep(m.duration)
 	}
-
-	return models.CallResult{
-		RequestName: requestModel.Name,
-		Status:      200,
-		Duration:    m.ShootDuration,
-		Timestamp:   time.Now(),
-	}
+	return models.CallResult{RequestName: r.Name, Status: 200, Timestamp: time.Now(), Duration: m.duration}
 }
 
-func (m *MockAttackerEngine) GetCallCount() int {
+func (m *MockAttacker) Calls() int {
 	m.mu.Lock()
 	defer m.mu.Unlock()
-	return m.callCount
+	return m.calls
 }
 
-// Создание тестового логгера
 func newTestLogger() *slog.Logger {
-	return slog.New(slog.NewTextHandler(os.Stdout, &slog.HandlerOptions{
-		Level: slog.LevelError, // Минимум логов в тестах
-	}))
+	return slog.New(slog.NewTextHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelError}))
 }
 
-// Создание простого сценария
-func createSimpleScenario() models.TestScenario {
-	return models.TestScenario{
-		ID:      "test-1",
-		Name:    "Simple Test",
-		BaseURL: "http://example.com",
-		Stages: []models.Stage{
-			{
-				ID:          1,
-				Type:        models.StageSteady,
-				Duration:    1,
-				TargetUsers: 2,
-				Requests: []models.TestRequest{
-					{
-						Name:   "TestRequest",
-						Method: "GET",
-						Path:   "http://example.com/test",
-						Weight: 100,
-					},
-				},
-			},
-		},
+func newTestEngine() (*Engine, *MockAttacker) {
+	attacker := &MockAttacker{}
+	return NewEngine(newTestLogger(), attacker), attacker
+}
+
+// makeResults создаёт буферизованный канал для результатов.
+// Правило закрытия: всегда вызывайте pool.KillAll() перед close(results),
+// иначе живые горутины пользователей запаникуют на записи в закрытый канал.
+func makeResults() chan models.CallResult {
+	return make(chan models.CallResult, 500)
+}
+
+func drainResults(ch chan models.CallResult) int {
+	var n int
+	for range ch {
+		n++
+	}
+	return n
+}
+
+func makeRequests() []models.TestRequest {
+	return []models.TestRequest{
+		{Name: "req", Method: "GET", Path: "http://example.com/test", Weight: 100},
 	}
 }
 
-// TestNewEngine - проверка создания движка.
+// ── NewEngine ─────────────────────────────────────────────────────────────────
+
 func TestNewEngine(t *testing.T) {
-	logger := newTestLogger()
-	attacker := &MockAttackerEngine{}
-
-	engine := NewEngine(logger, attacker)
-
+	engine, attacker := newTestEngine()
 	if engine == nil {
-		t.Fatal("Engine should not be nil")
-	}
-	if engine.logger != logger {
-		t.Error("Logger not set correctly")
+		t.Fatal("engine is nil")
 	}
 	if engine.attacker != attacker {
-		t.Error("Attacker not set correctly")
+		t.Error("attacker not set")
+	}
+	if engine.pool == nil {
+		t.Error("pool is nil")
 	}
 }
 
-// TestEngine_Run_Success - базовый успешный сценарий.
-func TestEngine_Run_Success(t *testing.T) {
-	logger := newTestLogger()
-	attacker := &MockAttackerEngine{ShootDuration: 10 * time.Millisecond}
-	engine := NewEngine(logger, attacker)
+// ── StageSteady ───────────────────────────────────────────────────────────────
 
-	scenario := createSimpleScenario()
+// Пользователи запускаются и производят результаты в течение длительности этапа.
+func TestExecuteStage_Steady_ProducesResults(t *testing.T) {
+	engine, _ := newTestEngine()
+	results := makeResults()
+
+	stage := models.Stage{
+		ID: 1, Type: models.StageSteady, Duration: 1, TargetUsers: 3,
+		Requests: makeRequests(),
+	}
+
+	engine.ExecuteStage(context.Background(), stage, results)
+
+	// Сначала останавливаем всех пользователей — они прекращают писать в results.
+	// Только после этого безопасно закрывать канал.
+	engine.pool.KillAll()
+	close(results)
+
+	if n := drainResults(results); n == 0 {
+		t.Error("expected results, got 0")
+	}
+}
+
+// Пул должен содержать ровно TargetUsers после завершения этапа.
+func TestExecuteStage_Steady_PoolSize(t *testing.T) {
+	engine, _ := newTestEngine()
+	results := makeResults()
+
+	stage := models.Stage{
+		ID: 1, Type: models.StageSteady, Duration: 1, TargetUsers: 5,
+		Requests: makeRequests(),
+	}
+
+	engine.ExecuteStage(context.Background(), stage, results)
+
+	if got := engine.pool.Len(); got != 5 {
+		t.Errorf("expected pool size 5, got %d", got)
+	}
+
+	engine.pool.KillAll()
+}
+
+// Если пользователей уже больше TargetUsers — лишние должны быть убиты.
+func TestExecuteStage_Steady_KillsExcessUsers(t *testing.T) {
+	engine, _ := newTestEngine()
+	results := makeResults()
+
+	// Сначала запускаем 5 пользователей.
+	stage1 := models.Stage{
+		ID: 1, Type: models.StageSteady, Duration: 1, TargetUsers: 5,
+		Requests: makeRequests(),
+	}
+	engine.ExecuteStage(context.Background(), stage1, results)
+	if got := engine.pool.Len(); got != 5 {
+		t.Fatalf("setup: expected 5 users, got %d", got)
+	}
+
+	// Потом снижаем до 2.
+	stage2 := models.Stage{
+		ID: 2, Type: models.StageSteady, Duration: 1, TargetUsers: 2,
+		Requests: makeRequests(),
+	}
+	engine.ExecuteStage(context.Background(), stage2, results)
+
+	if got := engine.pool.Len(); got != 2 {
+		t.Errorf("expected pool size 2 after kill, got %d", got)
+	}
+
+	engine.pool.KillAll()
+}
+
+// Если количество пользователей уже равно TargetUsers — ничего не меняется.
+func TestExecuteStage_Steady_NoChangeWhenAtTarget(t *testing.T) {
+	engine, _ := newTestEngine()
+	results := makeResults()
+
+	stage := models.Stage{
+		ID: 1, Type: models.StageSteady, Duration: 1, TargetUsers: 3,
+		Requests: makeRequests(),
+	}
+	engine.ExecuteStage(context.Background(), stage, results)
+	before := engine.pool.Len()
+
+	engine.ExecuteStage(context.Background(), stage, results)
+	after := engine.pool.Len()
+
+	if before != after {
+		t.Errorf("pool size changed from %d to %d, expected no change", before, after)
+	}
+
+	engine.pool.KillAll()
+}
+
+// ── StageRampUp ───────────────────────────────────────────────────────────────
+
+// После RampUp пул должен содержать TargetUsers пользователей.
+func TestExecuteStage_RampUp_ReachesTarget(t *testing.T) {
+	engine, _ := newTestEngine()
+	results := makeResults()
+
+	stage := models.Stage{
+		ID: 1, Type: models.StageRampUp, Duration: 1, TargetUsers: 4,
+		Requests: makeRequests(),
+	}
+
+	engine.ExecuteStage(context.Background(), stage, results)
+
+	if got := engine.pool.Len(); got != 4 {
+		t.Errorf("expected 4 users after ramp-up, got %d", got)
+	}
+
+	engine.pool.KillAll()
+}
+
+// Пользователи из RampUp переживают этап и продолжают работу на следующем Steady.
+func TestExecuteStage_RampUp_UsersSurviveIntoSteady(t *testing.T) {
+	engine, _ := newTestEngine()
+	results := makeResults()
+
+	rampUp := models.Stage{
+		ID: 1, Type: models.StageRampUp, Duration: 1, TargetUsers: 3,
+		Requests: makeRequests(),
+	}
+	steady := models.Stage{
+		ID: 2, Type: models.StageSteady, Duration: 1, TargetUsers: 3,
+		Requests: makeRequests(),
+	}
+
+	engine.ExecuteStage(context.Background(), rampUp, results)
+	afterRampUp := engine.pool.Len()
+
+	engine.ExecuteStage(context.Background(), steady, results)
+	afterSteady := engine.pool.Len()
+
+	// Steady не должен убивать и пересоздавать пользователей — дельта = 0.
+	if afterRampUp != 3 {
+		t.Errorf("expected 3 users after ramp-up, got %d", afterRampUp)
+	}
+	if afterSteady != 3 {
+		t.Errorf("expected 3 users after steady (no change), got %d", afterSteady)
+	}
+
+	engine.pool.KillAll()
+}
+
+// Если пул уже >= TargetUsers — RampUp ничего не добавляет.
+func TestExecuteStage_RampUp_NoOpWhenAtOrAboveTarget(t *testing.T) {
+	engine, _ := newTestEngine()
+	results := makeResults()
+
+	// Сначала steady до 5.
+	setup := models.Stage{
+		ID: 1, Type: models.StageSteady, Duration: 1, TargetUsers: 5,
+		Requests: makeRequests(),
+	}
+	engine.ExecuteStage(context.Background(), setup, results)
+
+	// RampUp до 3 — должен быть no-op.
+	rampUp := models.Stage{
+		ID: 2, Type: models.StageRampUp, Duration: 1, TargetUsers: 3,
+		Requests: makeRequests(),
+	}
+	engine.ExecuteStage(context.Background(), rampUp, results)
+
+	if got := engine.pool.Len(); got != 5 {
+		t.Errorf("expected pool size unchanged at 5, got %d", got)
+	}
+
+	engine.pool.KillAll()
+}
+
+// ── StageRampDown ─────────────────────────────────────────────────────────────
+
+// После RampDown пул должен содержать TargetUsers пользователей.
+func TestExecuteStage_RampDown_ReachesTarget(t *testing.T) {
+	engine, _ := newTestEngine()
+	results := makeResults()
+
+	setup := models.Stage{
+		ID: 1, Type: models.StageSteady, Duration: 1, TargetUsers: 5,
+		Requests: makeRequests(),
+	}
+	engine.ExecuteStage(context.Background(), setup, results)
+
+	rampDown := models.Stage{
+		ID: 2, Type: models.StageRampDown, Duration: 1, TargetUsers: 2,
+		Requests: makeRequests(),
+	}
+	engine.ExecuteStage(context.Background(), rampDown, results)
+
+	if got := engine.pool.Len(); got != 2 {
+		t.Errorf("expected 2 users after ramp-down, got %d", got)
+	}
+
+	engine.pool.KillAll()
+}
+
+// Если пул уже <= TargetUsers — RampDown ничего не убивает.
+func TestExecuteStage_RampDown_NoOpWhenAtOrBelowTarget(t *testing.T) {
+	engine, _ := newTestEngine()
+	results := makeResults()
+
+	setup := models.Stage{
+		ID: 1, Type: models.StageSteady, Duration: 1, TargetUsers: 2,
+		Requests: makeRequests(),
+	}
+	engine.ExecuteStage(context.Background(), setup, results)
+
+	rampDown := models.Stage{
+		ID: 2, Type: models.StageRampDown, Duration: 1, TargetUsers: 5,
+		Requests: makeRequests(),
+	}
+	engine.ExecuteStage(context.Background(), rampDown, results)
+
+	if got := engine.pool.Len(); got != 2 {
+		t.Errorf("expected pool size unchanged at 2, got %d", got)
+	}
+
+	engine.pool.KillAll()
+}
+
+// ── Полный сценарий RampUp → Steady → RampDown ────────────────────────────────
+
+func TestExecuteStage_FullLifecycle(t *testing.T) {
+	engine, _ := newTestEngine()
+	results := makeResults()
+
 	ctx := context.Background()
 
-	results, err := engine.Run(ctx, scenario)
-	if err != nil {
-		t.Fatalf("Run failed: %v", err)
+	stages := []models.Stage{
+		{ID: 1, Type: models.StageRampUp, Duration: 1, TargetUsers: 5, Requests: makeRequests()},
+		{ID: 2, Type: models.StageSteady, Duration: 1, TargetUsers: 5, Requests: makeRequests()},
+		{ID: 3, Type: models.StageRampDown, Duration: 1, TargetUsers: 0, Requests: makeRequests()},
 	}
 
-	// Собираем результаты
-	var count int
-	for range results {
-		count++
+	for _, stage := range stages {
+		engine.ExecuteStage(ctx, stage, results)
 	}
 
-	if count == 0 {
-		t.Error("Expected some results, got 0")
-	}
-
-	t.Logf("Received %d results", count)
-}
-
-// TestEngine_Run_InvalidScenario - тест с невалидным сценарием.
-func TestEngine_Run_InvalidScenario(t *testing.T) {
-	logger := newTestLogger()
-	attacker := &MockAttackerEngine{}
-	engine := NewEngine(logger, attacker)
-
-	// Сценарий без BaseURL.
-	invalidScenario := models.TestScenario{
-		ID:      "invalid",
-		BaseURL: "", // Пустой BaseURL.
-		Stages:  []models.Stage{},
-	}
-
-	ctx := context.Background()
-	results, err := engine.Run(ctx, invalidScenario)
-
-	if err == nil {
-		t.Error("Expected error for invalid scenario, got nil")
-	}
-	if results != nil {
-		t.Error("Results should be nil for invalid scenario")
+	if got := engine.pool.Len(); got != 0 {
+		t.Errorf("expected 0 users after full ramp-down, got %d", got)
 	}
 }
 
-// TestEngine_Run_ContextCancel - тест отмены через контекст.
-func TestEngine_Run_ContextCancel(t *testing.T) {
-	logger := newTestLogger()
-	attacker := &MockAttackerEngine{ShootDuration: 20 * time.Millisecond}
-	engine := NewEngine(logger, attacker)
+// ── Отмена контекста ──────────────────────────────────────────────────────────
 
-	// Длинный сценарий.
-	scenario := models.TestScenario{
-		ID:      "cancel-test",
-		Name:    "Cancel Test",
-		BaseURL: "http://example.com",
-		Stages: []models.Stage{
-			{
-				ID:          1,
-				Type:        models.StageSteady,
-				Duration:    10, // 10 секунд.
-				TargetUsers: 5,
-				Requests: []models.TestRequest{
-					{
-						Name:   "LongRequest",
-						Method: "GET",
-						Path:   "http://example.com/long",
-						Weight: 100,
-					},
-				},
-			},
-		},
-	}
+// При отмене ctx ExecuteStage должен завершиться быстро.
+func TestExecuteStage_ContextCancel_ExitsQuickly(t *testing.T) {
+	engine, _ := newTestEngine()
+	results := makeResults()
 
 	ctx, cancel := context.WithCancel(context.Background())
-	results, err := engine.Run(ctx, scenario)
-	if err != nil {
-		t.Fatalf("Run failed: %v", err)
+
+	stage := models.Stage{
+		ID: 1, Type: models.StageSteady, Duration: 30, TargetUsers: 3,
+		Requests: makeRequests(),
 	}
 
-	// Отменяем через 200ms.
 	time.AfterFunc(200*time.Millisecond, cancel)
 
 	start := time.Now()
-	for range results {
-		// Читаем результаты.
-	}
+	engine.ExecuteStage(ctx, stage, results)
 	elapsed := time.Since(start)
 
-	// Должен завершиться быстрее, чем за 10 секунд.
-	if elapsed >= 5*time.Second {
-		t.Errorf("Test should cancel quickly, took %v", elapsed)
+	if elapsed >= 2*time.Second {
+		t.Errorf("expected fast exit on cancel, took %v", elapsed)
 	}
 
-	// Проверяем, что контекст действительно отменен.
-	select {
-	case <-ctx.Done():
-		t.Log("Context is cancelled")
-
-		// Проверяем ошибку контекста.
-		if ctx.Err() != context.Canceled {
-			t.Errorf("Expected context.Canceled error, got: %v", ctx.Err())
-		}
-	default:
-		t.Error("Context should be cancelled but it's not")
-	}
-
-	t.Logf("Test cancelled after %v", elapsed)
+	engine.pool.KillAll()
 }
 
-// TestEngine_Run_StageDuration - тест истечения времени этапа.
-func TestEngine_Run_StageDuration(t *testing.T) {
-	logger := newTestLogger()
-	attacker := &MockAttackerEngine{ShootDuration: 50 * time.Millisecond}
-	engine := NewEngine(logger, attacker)
+// ── Неизвестный тип этапа ─────────────────────────────────────────────────────
 
-	scenario := models.TestScenario{
-		ID:      "duration-test",
-		Name:    "Duration Test",
-		BaseURL: "http://example.com",
-		Stages: []models.Stage{
-			{
-				ID:          1,
-				Type:        models.StageSteady,
-				Duration:    1, // 1 секунда. 
-				TargetUsers: 3,
-				Requests: []models.TestRequest{
-					{
-						Name:   "SlowRequest",
-						Method: "GET",
-						Path:   "http://example.com/slow",
-						Weight: 100,
-					},
-				},
-			},
-		},
+func TestExecuteStage_UnknownType_NoResults(t *testing.T) {
+	engine, attacker := newTestEngine()
+	results := makeResults()
+
+	stage := models.Stage{
+		ID: 1, Type: "UNKNOWN", Duration: 1, TargetUsers: 3,
+		Requests: makeRequests(),
 	}
 
-	ctx := context.Background()
-	results, err := engine.Run(ctx, scenario)
-	if err != nil {
-		t.Fatalf("Run failed: %v", err)
+	engine.ExecuteStage(context.Background(), stage, results)
+	close(results)
+
+	if attacker.Calls() != 0 {
+		t.Errorf("expected 0 calls for unknown stage type, got %d", attacker.Calls())
 	}
-
-	start := time.Now()
-	for range results {
-		// Читаем результаты. 
-	}
-	elapsed := time.Since(start)
-
-	// Должен завершиться примерно за 1 секунду (+/- погрешность). 
-	if elapsed < 800*time.Millisecond || elapsed > 2*time.Second {
-		t.Errorf("Expected ~1s duration, got %v", elapsed)
-	}
-
-	t.Logf("Stage completed in %v", elapsed)
-}
-
-// TestEngine_Run_MultipleStages - тест нескольких этапов.
-func TestEngine_Run_MultipleStages(t *testing.T) {
-	logger := newTestLogger()
-	attacker := &MockAttackerEngine{ShootDuration: 10 * time.Millisecond}
-	engine := NewEngine(logger, attacker)
-
-	scenario := models.TestScenario{
-		ID:      "multi-stage",
-		Name:    "Multi Stage Test",
-		BaseURL: "http://example.com",
-		Stages: []models.Stage{
-			{
-				ID:          1,
-				Type:        models.StageSteady,
-				Duration:    1,
-				TargetUsers: 2,
-				Requests: []models.TestRequest{
-					{
-						Name:   "Stage1Request",
-						Method: "GET",
-						Path:   "http://example.com/stage1",
-						Weight: 100,
-					},
-				},
-			},
-			{
-				ID:          2,
-				Type:        models.StageSteady,
-				Duration:    1,
-				TargetUsers: 3,
-				Requests: []models.TestRequest{
-					{
-						Name:   "Stage2Request",
-						Method: "GET",
-						Path:   "http://example.com/stage2",
-						Weight: 100,
-					},
-				},
-			},
-		},
-	}
-
-	ctx := context.Background()
-	results, err := engine.Run(ctx, scenario)
-	if err != nil {
-		t.Fatalf("Run failed: %v", err)
-	}
-
-	var count int
-	for range results {
-		count++
-	}
-
-	if count == 0 {
-		t.Error("Expected results from both stages")
-	}
-
-	t.Logf("Total results from both stages: %d", count)
-}
-
-// TestEngine_Run_ZeroUsers - тест с нулевым количеством пользователей.
-func TestEngine_Run_ZeroUsers(t *testing.T) {
-	logger := newTestLogger()
-	attacker := &MockAttackerEngine{}
-	engine := NewEngine(logger, attacker)
-
-	scenario := models.TestScenario{
-		ID:      "zero-users",
-		Name:    "Zero Users",
-		BaseURL: "http://example.com",
-		Stages: []models.Stage{
-			{
-				ID:          1,
-				Type:        models.StageSteady,
-				Duration:    1,
-				TargetUsers: 0,
-				Requests: []models.TestRequest{
-					{
-						Name:   "Request",
-						Method: "GET",
-						Path:   "http://example.com/test",
-						Weight: 100,
-					},
-				},
-			},
-		},
-	}
-
-	ctx := context.Background()
-	results, err := engine.Run(ctx, scenario)
-
-	// Validate вернет ошибку для TargetUsers = 0.
-	if err == nil {
-		// Если валидация пропустила, проверяем результаты.
-		var count int
-		for range results {
-			count++
-		}
-		if count != 0 {
-			t.Errorf("Expected 0 results with 0 users, got %d", count)
-		}
+	if got := engine.pool.Len(); got != 0 {
+		t.Errorf("expected empty pool for unknown stage type, got %d", got)
 	}
 }
 
-// TestEngine_Run_UnknownStageType - тест неизвестного типа этапа.
-func TestEngine_Run_UnknownStageType(t *testing.T) {
-	logger := newTestLogger()
-	attacker := &MockAttackerEngine{}
-	engine := NewEngine(logger, attacker)
+// ── Невалидный генератор ──────────────────────────────────────────────────────
 
-	scenario := models.TestScenario{
-		ID:      "unknown-type",
-		Name:    "Unknown Type",
-		BaseURL: "http://example.com",
-		Stages: []models.Stage{
-			{
-				ID:          1,
-				Type:        "INVALID_TYPE", // Неизвестный тип
-				Duration:    1,
-				TargetUsers: 2,
-				Requests: []models.TestRequest{
-					{
-						Name:   "Request",
-						Method: "GET",
-						Path:   "http://example.com/test",
-						Weight: 100,
-					},
-				},
-			},
-		},
+// Если список запросов пустой — ExecuteStage должен вернуться без паники.
+func TestExecuteStage_EmptyRequests_NoOp(t *testing.T) {
+	engine, _ := newTestEngine()
+	results := makeResults()
+
+	stage := models.Stage{
+		ID: 1, Type: models.StageSteady, Duration: 1, TargetUsers: 3,
+		Requests: []models.TestRequest{}, // пустой список
 	}
 
-	ctx := context.Background()
-	results, err := engine.Run(ctx, scenario)
-	if err != nil {
-		t.Fatalf("Run failed: %v", err)
+	// Не должно быть паники.
+	engine.ExecuteStage(context.Background(), stage, results)
+	close(results)
+
+	if got := engine.pool.Len(); got != 0 {
+		t.Errorf("expected empty pool on generator error, got %d", got)
 	}
-
-	var count int
-	for range results {
-		count++
-	}
-
-	// С неизвестным типом этапа результатов быть не должно.
-	if count != 0 {
-		t.Errorf("Expected 0 results with unknown stage type, got %d", count)
-	}
-}
-
-// TestEngine_Run_ResultsChannel - проверка канала результатов.
-func TestEngine_Run_ResultsChannel(t *testing.T) {
-	logger := newTestLogger()
-	attacker := &MockAttackerEngine{ShootDuration: 10 * time.Millisecond}
-	engine := NewEngine(logger, attacker)
-
-	scenario := createSimpleScenario()
-	ctx := context.Background()
-
-	results, err := engine.Run(ctx, scenario)
-	if err != nil {
-		t.Fatalf("Run failed: %v", err)
-	}
-
-	// Проверяем, что можем читать из канала.
-	result, ok := <-results
-	if !ok {
-		t.Fatal("Channel closed too early")
-	}
-
-	if result.Status != 200 {
-		t.Errorf("Expected status 200, got %d", result.Status)
-	}
-
-	// Дочитываем остальное.
-	for range results {
-	}
-
-	// Проверяем, что канал закрыт.
-	_, ok = <-results
-	if ok {
-		t.Error("Channel should be closed")
-	}
-}
-
-// TestEngine_Run_ConcurrentUsers - тест параллельной работы пользователей.
-func TestEngine_Run_ConcurrentUsers(t *testing.T) {
-	logger := newTestLogger()
-	attacker := &MockAttackerEngine{ShootDuration: 50 * time.Millisecond}
-	engine := NewEngine(logger, attacker)
-
-	scenario := models.TestScenario{
-		ID:      "concurrent",
-		Name:    "Concurrent Test",
-		BaseURL: "http://example.com",
-		Stages: []models.Stage{
-			{
-				ID:          1,
-				Type:        models.StageSteady,
-				Duration:    1,
-				TargetUsers: 10, // Много пользователей
-				Requests: []models.TestRequest{
-					{
-						Name:   "Request",
-						Method: "GET",
-						Path:   "http://example.com/test",
-						Weight: 100,
-					},
-				},
-			},
-		},
-	}
-
-	ctx := context.Background()
-	results, err := engine.Run(ctx, scenario)
-	if err != nil {
-		t.Fatalf("Run failed: %v", err)
-	}
-
-	var count int
-	for range results {
-		count++
-	}
-
-	if count == 0 {
-		t.Error("Expected some results from concurrent users")
-	}
-
-	t.Logf("Concurrent users made %d requests", count)
 }

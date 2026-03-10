@@ -15,6 +15,7 @@ type ChaosEngineInterface interface {
 
 type LoadEngineInterface interface {
 	ExecuteStage(ctx context.Context, stage models.Stage, results chan<- models.CallResult)
+	Shutdown()
 }
 
 // Coordinator управляет всем тестом: и нагрузкой, и хаосом.
@@ -52,6 +53,7 @@ func (c *Coordinator) RunTest(ctx context.Context, scenario models.TestScenario)
 		for _, stage := range scenario.Stages {
 			select {
 			case <-ctx.Done():
+				c.loadEngine.Shutdown()
 				return
 			default:
 			}
@@ -59,6 +61,7 @@ func (c *Coordinator) RunTest(ctx context.Context, scenario models.TestScenario)
 			c.runStage(ctx, stage, results)
 		}
 
+		c.loadEngine.Shutdown()
 		c.logger.Info("Coordinator finished test")
 	}()
 

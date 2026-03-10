@@ -36,6 +36,10 @@ func (m *MockLoadEngine) ExecuteStage(ctx context.Context, stage models.Stage, r
 	}
 }
 
+func (m *MockLoadEngine) Shutdown() {
+	// Заглушка для интерфейса.
+}
+
 // MockChaosEngine имитирует работу хаос-движка.
 type MockChaosEngine struct {
 	mu           sync.Mutex

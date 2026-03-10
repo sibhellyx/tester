@@ -7,12 +7,18 @@ import (
 	"github.com/sibhellyx/tester/internal/models"
 )
 
-// RequestGenerator - интерфейс генератора, предоставляет метод для получения следующего для выполения запроса.
+// RequestGeneratorInterface - интерфейс генератора, предоставляет метод для получения следующего запроса.
 type RequestGeneratorInterface interface {
-	Next() *models.TestRequest // Возвращаетс следующий запрос или nil.
+	Next() *models.TestRequest
 }
 
-// RunVirtualUser - функция запускающая
+// RunVirtualUser выполняет бесконечный цикл запросов от имени одного виртуального пользователя.
+// Завершается когда:
+//   - ctx отменён (этап завершился, тест остановлен, или индивидуальный kill)
+//   - генератор вернул nil (теоретически недостижимо для WeightedGenerator)
+//
+// wg.Done() вызывается через defer — гарантированно даже при панике.
+// Вызывающий код (userPool.Spawn) закрывает done-канал строго после возврата из этой функции.
 func RunVirtualUser(
 	ctx context.Context,
 	wg *sync.WaitGroup,
@@ -20,30 +26,30 @@ func RunVirtualUser(
 	attacker AttackerToolInterface,
 	results chan<- models.CallResult,
 ) {
-	// Закрываем waitgroup.
 	defer wg.Done()
+
 	for {
-		// Проверка отмены контекста (остановка теста).
+		// Проверяем отмену контекста перед каждым запросом.
+		// Это позволяет быстро среагировать на остановку без выполнения лишнего запроса.
 		select {
 		case <-ctx.Done():
 			return
 		default:
 		}
-		// Получение следующего запроса.
+
 		request := generator.Next()
 		if request == nil {
-			// Если генератор вернул nil, значит сценарий исчерпан.
-			return
-		}
-		result := attacker.Shoot(*request)
-		select {
-		// Запись результата.
-		case results <- result:
-		case <-ctx.Done():
-			// Тест остановлен, при записи результата.
-			// Выход, результат теряется.
 			return
 		}
 
+		result := attacker.Shoot(*request)
+
+		// При записи результата тоже проверяем ctx —
+		// канал results может быть переполнен, и мы не хотим зависнуть навсегда.
+		select {
+		case results <- result:
+		case <-ctx.Done():
+			return
+		}
 	}
 }
