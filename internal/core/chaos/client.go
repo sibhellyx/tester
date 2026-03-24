@@ -2,6 +2,7 @@ package chaos
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"io"
 	"strings"
@@ -16,6 +17,12 @@ type ContainerInfo struct {
 	Name   string
 	Image  string
 	Status string
+}
+
+// ContainerStats — метрики ресурсов контейнера в момент снимка.
+type ContainerStats struct {
+	CPUPercent float64 // 0–100 * количество ядер
+	MemPercent float64 // 0–100
 }
 
 // DockerClient - структура обертка, для взаимодействия с контейнерами.
@@ -116,6 +123,47 @@ func (c *DockerClient) UpdateResources(ctx context.Context, containerID string, 
 	}
 
 	return nil
+}
+
+// GetStats возвращает статистику контейнера по загруженности.
+func (c *DockerClient) GetStats(ctx context.Context, containerID string) (*ContainerStats, error) {
+	// false = один снимок, не бесконечный stream.
+	resp, err := c.client.ContainerStats(ctx, containerID, client.ContainerStatsOptions{
+		Stream: false,
+	})
+	if err != nil {
+		return nil, fmt.Errorf("failed to get stats for %s: %w", containerID, err)
+	}
+	defer resp.Body.Close()
+
+	var stats container.StatsResponse
+	if err := json.NewDecoder(resp.Body).Decode(&stats); err != nil {
+		return nil, fmt.Errorf("failed to decode stats: %w", err)
+	}
+
+	// Формула CPU из официальной документации Docker.
+	// PreCPUStats — предыдущий снимок, CPUStats — текущий.
+	// Дельта показывает сколько CPU-времени потратил контейнер между снимками.
+	cpuDelta := float64(stats.CPUStats.CPUUsage.TotalUsage - stats.PreCPUStats.CPUUsage.TotalUsage)
+	systemDelta := float64(stats.CPUStats.SystemUsage - stats.PreCPUStats.SystemUsage)
+	onlineCPUs := float64(stats.CPUStats.OnlineCPUs)
+
+	var cpuPercent float64
+	if systemDelta > 0 && cpuDelta > 0 {
+		cpuPercent = (cpuDelta / systemDelta) * onlineCPUs * 100.0
+	}
+
+	// Формула RAM.
+	// Нужно вычесть page cache — Docker включает его в Usage,
+	// но это не реальное потребление приложения.
+	cache := stats.MemoryStats.Stats["cache"]
+	usedMemory := float64(stats.MemoryStats.Usage - cache)
+	memPercent := (usedMemory / float64(stats.MemoryStats.Limit)) * 100.0
+
+	return &ContainerStats{
+		CPUPercent: cpuPercent,
+		MemPercent: memPercent,
+	}, nil
 }
 
 // ListContainers возвращает список запущенных контейнеров.
