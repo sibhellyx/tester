@@ -63,7 +63,6 @@ func makeRequests() []models.TestRequest {
 	}
 }
 
-
 func TestNewEngine(t *testing.T) {
 	engine, attacker := newTestEngine()
 	if engine == nil {
