@@ -53,6 +53,10 @@ func (r *ScenarioRepository) Create(ctx context.Context, s models.TestScenario) 
 		return err
 	}
 
+	if err = insertStopConditions(ctx, tx, s.ID, s.StopConditions); err != nil {
+		return err
+	}
+
 	return tx.Commit()
 }
 
@@ -79,6 +83,11 @@ func (r *ScenarioRepository) Get(ctx context.Context, id string) (*models.TestSc
 		return nil, err
 	}
 	s.Stages = stages
+
+	s.StopConditions, err = r.loadStopConditions(ctx, s.ID)
+	if err != nil {
+		return nil, err
+	}
 
 	return &s, nil
 }
@@ -110,6 +119,11 @@ func (r *ScenarioRepository) List(ctx context.Context) ([]models.TestScenario, e
 			return nil, err
 		}
 		s.Stages = stages
+
+		s.StopConditions, err = r.loadStopConditions(ctx, s.ID)
+		if err != nil {
+			return nil, err
+		}
 
 		scenarios = append(scenarios, s)
 	}
@@ -166,12 +180,22 @@ func (r *ScenarioRepository) Update(ctx context.Context, s models.TestScenario) 
 		return err
 	}
 
+	if _, err = tx.ExecContext(ctx,
+		`DELETE FROM stop_conditions WHERE scenario_id = $1`, s.ID,
+	); err != nil {
+		return fmt.Errorf("delete old stop_conditions: %w", err)
+	}
+
+	if err = insertStopConditions(ctx, tx, s.ID, s.StopConditions); err != nil {
+		return err
+	}
+
 	return tx.Commit()
 }
 
 // Delete - удаляет сценрий.
 func (r *ScenarioRepository) Delete(ctx context.Context, id string) error {
-	// stages, requests, chaos_params удалятся каскадом через ON DELETE CASCADE
+	// stages, requests, chaos_params, stop_conditiosn удалятся каскадом через ON DELETE CASCADE
 	result, err := r.db.ExecContext(ctx,
 		`DELETE FROM scenarios WHERE id = $1`, id,
 	)
@@ -333,6 +357,30 @@ func (r *ScenarioRepository) loadChaosParams(ctx context.Context, scenarioID str
 	return events, nil
 }
 
+func (r *ScenarioRepository) loadStopConditions(ctx context.Context, scenarioID string) (*models.StopConditions, error) {
+	const q = `
+        SELECT target_container_id, error_rate_percent,
+               max_response_time_sec, max_cpu_percent, max_ram_percent
+        FROM stop_conditions
+        WHERE scenario_id = $1`
+
+	var sc models.StopConditions
+	err := r.db.QueryRowContext(ctx, q, scenarioID).Scan(
+		&sc.TargetContainerID,
+		&sc.ErrorRatePercent,
+		&sc.MaxResponseTimeSec,
+		&sc.MaxCPUPercent,
+		&sc.MaxRAMPercent,
+	)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return nil, nil // критерии не заданы — это нормально
+		}
+		return nil, fmt.Errorf("load stop_conditions: %w", err)
+	}
+	return &sc, nil
+}
+
 type txExecutor interface {
 	ExecContext(ctx context.Context, query string, args ...any) (sql.Result, error)
 }
@@ -412,6 +460,30 @@ func insertChaosParams(ctx context.Context, tx txExecutor, scenarioID string, st
 		); err != nil {
 			return fmt.Errorf("insert chaos param: %w", err)
 		}
+	}
+	return nil
+}
+
+func insertStopConditions(ctx context.Context, tx txExecutor, scenarioID string, sc *models.StopConditions) error {
+	if sc == nil {
+		return nil
+	}
+
+	const q = `
+        INSERT INTO stop_conditions
+            (scenario_id, target_container_id, error_rate_percent,
+             max_response_time_sec, max_cpu_percent, max_ram_percent)
+        VALUES ($1, $2, $3, $4, $5, $6)`
+
+	if _, err := tx.ExecContext(ctx, q,
+		scenarioID,
+		sc.TargetContainerID,
+		sc.ErrorRatePercent,
+		sc.MaxResponseTimeSec,
+		sc.MaxCPUPercent,
+		sc.MaxRAMPercent,
+	); err != nil {
+		return fmt.Errorf("insert stop_conditions: %w", err)
 	}
 	return nil
 }
