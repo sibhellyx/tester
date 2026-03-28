@@ -58,13 +58,17 @@ func (s *TestResultsService) GetReport(ctx context.Context, runID string) (*mode
 
 	metrics := s.resultProcessor.ComputeMetrics(results)
 	perRequest := s.resultProcessor.ComputePerRequest(results)
+	perStage := s.resultProcessor.ComputePerStage(results)
 
-	builder := report.NewReportBuilder(*run, *scenario, metrics, perRequest, results)
+	builder := report.NewReportBuilder(*run, *scenario, metrics, perRequest, perStage, results)
 	r := builder.BuildReport()
 	// Нормализация длительности в ответе.
 	r.Summary = normalizeMetrics(r.Summary)
 	for name, m := range r.PerRequest {
 		r.PerRequest[name] = normalizeMetrics(m)
+	}
+	for id, m := range r.PerStage {
+		r.PerStage[id] = normalizeMetrics(m)
 	}
 	return &r, nil
 }
@@ -79,8 +83,9 @@ func (s *TestResultsService) GetChartData(ctx context.Context, runID string) ([]
 
 	metrics := s.resultProcessor.ComputeMetrics(results)
 	perRequest := s.resultProcessor.ComputePerRequest(results)
+	perStage := s.resultProcessor.ComputePerStage(results)
 
-	builder := report.NewReportBuilder(*run, *scenario, metrics, perRequest, results)
+	builder := report.NewReportBuilder(*run, *scenario, metrics, perRequest, perStage, results)
 	return builder.BuildChartData(), nil
 }
 
@@ -94,8 +99,9 @@ func (s *TestResultsService) GenerateReportFile(ctx context.Context, runID strin
 
 	metrics := s.resultProcessor.ComputeMetrics(results)
 	perRequest := s.resultProcessor.ComputePerRequest(results)
+	perStage := s.resultProcessor.ComputePerStage(results)
 
-	builder := report.NewReportBuilder(*run, *scenario, metrics, perRequest, results)
+	builder := report.NewReportBuilder(*run, *scenario, metrics, perRequest, perStage, results)
 	testReport := builder.BuildReport()
 
 	// Генерируем CSV.

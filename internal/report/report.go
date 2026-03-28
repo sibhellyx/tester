@@ -19,6 +19,7 @@ type ReportBuilder struct {
 	scenario   models.TestScenario
 	metrics    models.Metrics
 	perRequest map[string]models.Metrics
+	perStage   map[int]models.Metrics
 	results    []models.CallResult
 }
 
@@ -28,6 +29,7 @@ func NewReportBuilder(
 	scenario models.TestScenario,
 	metrics models.Metrics,
 	perRequest map[string]models.Metrics,
+	perStage map[int]models.Metrics,
 	results []models.CallResult,
 ) *ReportBuilder {
 	return &ReportBuilder{
@@ -35,6 +37,7 @@ func NewReportBuilder(
 		scenario:   scenario,
 		metrics:    metrics,
 		perRequest: perRequest,
+		perStage:   perStage,
 		results:    results,
 	}
 }
@@ -59,6 +62,7 @@ func (b *ReportBuilder) BuildReport() models.TestReport {
 		EndTime:      endTime,
 		Summary:      b.metrics,
 		PerRequest:   b.perRequest,
+		PerStage:     b.perStage,
 		Charts:       charts,
 	}
 }

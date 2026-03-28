@@ -12,6 +12,7 @@ import (
 type ResultProcessorInterface interface {
 	ComputeMetrics(results []models.CallResult) models.Metrics
 	ComputePerRequest(results []models.CallResult) map[string]models.Metrics
+	ComputePerStage(results []models.CallResult) map[int]models.Metrics
 }
 
 // ResultProcessor вычисляет метрики по срезу результатов,
@@ -108,6 +109,19 @@ func (p *ResultProcessor) ComputePerRequest(results []models.CallResult) map[str
 		perRequest[name] = p.ComputeMetrics(group)
 	}
 	return perRequest
+}
+
+// ComputePerStage считает метрики отдельно для каждого этапа теста.
+func (p *ResultProcessor) ComputePerStage(results []models.CallResult) map[int]models.Metrics {
+	grouped := make(map[int][]models.CallResult)
+	for _, r := range results {
+		grouped[r.StageID] = append(grouped[r.StageID], r)
+	}
+	perStage := make(map[int]models.Metrics, len(grouped))
+	for id, group := range grouped {
+		perStage[id] = p.ComputeMetrics(group)
+	}
+	return perStage
 }
 
 // percentile возвращает перцентиль из уже отсортированного слайса.

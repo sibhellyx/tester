@@ -40,7 +40,8 @@ type TestReport struct {
 	ScenarioName string             `json:"scenario_name"`
 	StartTime    time.Time          `json:"start_time"`
 	EndTime      time.Time          `json:"end_time"`
-	Summary      Metrics            `json:"summary"`     // общая статистика
-	PerRequest   map[string]Metrics `json:"per_request"` // метрики по каждому запросу
+	Summary      Metrics            `json:"summary"`      // общая статистика
+	PerRequest   map[string]Metrics `json:"per_request"`  // метрики по каждому запросу
+	PerStage     map[int]Metrics    `json:"per_stage"`    // метрики по каждому этапу
 	Charts       []ChartData        `json:"charts"`
 }
