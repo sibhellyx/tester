@@ -28,7 +28,7 @@ func NewTestResultsRepository(logger *slog.Logger, db *sql.DB) *TestResultsRepos
 // GetCallResults загружает все CallResult для конкретного запуска.
 func (r *TestResultsRepository) GetCallResults(ctx context.Context, runID string) ([]models.CallResult, error) {
 	const q = `
-		SELECT request_name, timestamp, duration_ms, status, error, bytes_out, bytes_in
+		SELECT request_name, timestamp, duration_ms, status, error, bytes_out, bytes_in, stage_id
 		FROM call_results
 		WHERE run_id = $1
 		ORDER BY timestamp ASC`
@@ -55,6 +55,7 @@ func (r *TestResultsRepository) GetCallResults(ctx context.Context, runID string
 			&res.Error,
 			&res.BytesOut,
 			&res.BytesIn,
+			&res.StageID,
 		); err != nil {
 			return nil, fmt.Errorf("scan call result: %w", err)
 		}

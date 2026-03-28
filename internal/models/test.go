@@ -15,6 +15,7 @@ type TestRequest struct {
 
 // CallResult - Результат одного конкретного запроса.
 type CallResult struct {
+	StageID     int           `json:"stage_id"`
 	RequestName string        `json:"request_name"` // Название выполненного запроса.
 	Timestamp   time.Time     `json:"timestamp"`    // Время начала запроса.
 	Duration    time.Duration `json:"duration"`     // Сколько длился запрос (Latency).

@@ -148,8 +148,8 @@ func (r *TestRunRepository) SaveResults(ctx context.Context, runID string, resul
 
 	const q = `
 		INSERT INTO call_results
-		    (run_id, request_name, timestamp, duration_ms, status, error, bytes_out, bytes_in)
-		VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`
+		    (run_id, request_name, timestamp, duration_ms, status, error, bytes_out, bytes_in, stage_id)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)`
 
 	stmt, err := tx.PrepareContext(ctx, q)
 	if err != nil {
@@ -167,6 +167,7 @@ func (r *TestRunRepository) SaveResults(ctx context.Context, runID string, resul
 			res.Error,
 			res.BytesOut,
 			res.BytesIn,
+			res.StageID,
 		)
 		if err != nil {
 			return fmt.Errorf("insert call_result: %w", err)
