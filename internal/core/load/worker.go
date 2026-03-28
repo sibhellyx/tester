@@ -7,9 +7,10 @@ import (
 	"github.com/sibhellyx/tester/internal/models"
 )
 
-// RequestGeneratorInterface - интерфейс генератора, предоставляет метод для получения следующего запроса.
-type RequestGeneratorInterface interface {
+// stageAwareGenerator — интерфейс генератора, который требуется RunVirtualUser.
+type stageAwareGenerator interface {
 	Next() *models.TestRequest
+	CurrentStageID() int
 }
 
 // RunVirtualUser выполняет бесконечный цикл запросов от имени одного виртуального пользователя.
@@ -22,7 +23,7 @@ type RequestGeneratorInterface interface {
 func RunVirtualUser(
 	ctx context.Context,
 	wg *sync.WaitGroup,
-	generator RequestGeneratorInterface,
+	generator stageAwareGenerator,
 	attacker AttackerToolInterface,
 	results chan<- models.CallResult,
 ) {
@@ -30,7 +31,6 @@ func RunVirtualUser(
 
 	for {
 		// Проверяем отмену контекста перед каждым запросом.
-		// Это позволяет быстро среагировать на остановку без выполнения лишнего запроса.
 		select {
 		case <-ctx.Done():
 			return
@@ -43,9 +43,9 @@ func RunVirtualUser(
 		}
 
 		result := attacker.Shoot(*request)
+		result.StageID = generator.CurrentStageID()
 
-		// При записи результата тоже проверяем ctx —
-		// канал results может быть переполнен, и мы не хотим зависнуть навсегда.
+		// При записи результата тоже проверяем ctx.
 		select {
 		case results <- result:
 		case <-ctx.Done():

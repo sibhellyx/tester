@@ -31,6 +31,8 @@ func NewMockGenerator(count int) *MockGenerator {
 	}
 }
 
+func (m *MockGenerator) CurrentStageID() int { return 0 }
+
 func (m *MockGenerator) Next() *models.TestRequest {
 	m.mu.Lock()
 	defer m.mu.Unlock()

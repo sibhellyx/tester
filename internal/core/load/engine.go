@@ -51,6 +51,11 @@ func (e *Engine) ExecuteStage(
 		return
 	}
 
+	// Атомарно обновляем генератор для всех существующих workers пула.
+	// Это гарантирует, что workers из предыдущих этапов мгновенно переключатся
+	// на запросы текущего этапа без перезапуска горутин.
+	pool.SetStage(stage.ID, generator)
+
 	// stageCtx определяет длительность этапа.
 	// Пользователи к нему НЕ привязаны — они привязаны к родительскому ctx.
 	stageCtx, cancel := context.WithTimeout(ctx, time.Duration(stage.Duration)*time.Second)
@@ -71,7 +76,7 @@ func (e *Engine) ExecuteStage(
 				slog.Int("target", stage.TargetUsers),
 				slog.Int("spawning", delta),
 			)
-			pool.Spawn(ctx, delta, generator, e.attacker, results)
+			pool.Spawn(ctx, delta, e.attacker, results)
 
 		case delta < 0:
 			e.logger.Info("Steady: killing excess users",
@@ -122,7 +127,7 @@ func (e *Engine) ExecuteStage(
 				)
 				return
 			case <-ticker.C:
-				pool.Spawn(ctx, 1, generator, e.attacker, results)
+				pool.Spawn(ctx, 1, e.attacker, results)
 				e.logger.Info("RampUp: user added",
 					slog.Int("current", pool.Len()),
 					slog.Int("target", stage.TargetUsers),
