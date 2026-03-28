@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/sibhellyx/tester/internal/core/checker"
 	"github.com/sibhellyx/tester/internal/models"
 )
 
@@ -45,6 +46,7 @@ type TestRunService struct {
 	coordinator  CoordinatorInterface
 	runRepo      TestRunRepositoryInterface
 	scenarioRepo ScenarioRepositoryInterface // переиспользуем уже существующий интерфейс из scenario.go
+	dockerClient checker.DockerClinetStatsInterface
 
 	mu         sync.Mutex
 	activeRuns map[string]*activeRun // runID -> activeRun
@@ -56,12 +58,14 @@ func NewTestRunService(
 	coordinator CoordinatorInterface,
 	runRepo TestRunRepositoryInterface,
 	scenarioRepo ScenarioRepositoryInterface,
+	dockerClient checker.DockerClinetStatsInterface,
 ) *TestRunService {
 	return &TestRunService{
 		logger:       logger,
 		coordinator:  coordinator,
 		runRepo:      runRepo,
 		scenarioRepo: scenarioRepo,
+		dockerClient: dockerClient,
 		activeRuns:   make(map[string]*activeRun),
 	}
 }
@@ -125,6 +129,13 @@ func (s *TestRunService) executeRun(
 		close(doneCh)
 	}()
 
+	thresholdChecker := checker.NewThresholdChecker(scenario.StopConditions)
+	monitor := checker.NewResourceMonitor(scenario.StopConditions, s.dockerClient, s.logger)
+	monitor.Start(ctx) // no-op если контейнер не задан
+
+	violated := false
+	violationReason := ""
+
 	// Обновляем статус на running.
 	if err := s.runRepo.UpdateStatus(ctx, runID, models.StatusRunning, nil, ""); err != nil {
 		s.logger.Error("Failed to set status=running", slog.String("run_id", runID), slog.String("error", err.Error()))
@@ -160,6 +171,22 @@ func (s *TestRunService) executeRun(
 
 	for result := range resultsCh {
 		batch = append(batch, result)
+		thresholdChecker.Record(result)
+
+		// Проверяем HTTP-критерии.
+		if ok, reason := thresholdChecker.IsViolated(); ok {
+			violated, violationReason = true, reason
+			cancel()
+			break
+		}
+
+		// Проверяем ресурсные критерии
+		if ok, reason := monitor.IsViolated(); ok {
+			violated, violationReason = true, reason
+			cancel()
+			break
+		}
+
 		if len(batch) >= batchSize {
 			flush()
 		}
@@ -168,7 +195,15 @@ func (s *TestRunService) executeRun(
 
 	// Определяем финальный статус.
 	finalStatus := models.StatusFinished
-	if ctx.Err() != nil {
+	switch {
+	case violated:
+		s.logger.Warn("Test stopped by threshold",
+			slog.String("run_id", runID),
+			slog.String("reason", violationReason),
+		)
+		s.finishRun(runID, models.StatusFailed, violationReason)
+		return
+	case ctx.Err() != nil:
 		finalStatus = models.StatusStopped
 	}
 	s.finishRun(runID, finalStatus, "")

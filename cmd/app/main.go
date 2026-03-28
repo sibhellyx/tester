@@ -81,7 +81,7 @@ func main() {
 	// Инициализация репозитория для запуска и хранения выполнения тестов.
 	runRepository := database.NewTestRunRepository(log, db)
 	// Инициализация сервиса для запуска и выполнения тестов.
-	runService := service.NewTestRunService(log, coordinator, runRepository, scenarioRepository)
+	runService := service.NewTestRunService(log, coordinator, runRepository, scenarioRepository, dockerClient)
 	// Инициализация handler для запуска тестов и управления.
 	runHandler := handlers.NewTestRunHandler(log, runService)
 	// Инициализация процессора для обработки результатов.
