@@ -5,6 +5,7 @@ import { S } from "../../styles/theme";
 import { Badge, StatCard } from "../ui";
 import { StageTimeline } from "../scenarios";
 import { ChartPanel } from "../charts/ChartPanel";
+import { STAGE_COLORS } from "../../utils/constants";
 
 export function RunDetail({ run, scenario, onStop, onClose }) {
   const [report, setReport] = useState(null);
@@ -70,6 +71,46 @@ export function RunDetail({ run, scenario, onStop, onClose }) {
           <div style={{ ...S.label, marginBottom: 12 }}>ГРАФИКИ</div>
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginBottom: 24 }}>
             {report.charts.map((ch, i) => <ChartPanel key={i} chart={ch} />)}
+          </div>
+        </>
+      )}
+
+      {report?.per_stage && Object.keys(report.per_stage).length > 0 && (
+        <>
+          <div style={{ ...S.label, marginBottom: 10 }}>ПО ЭТАПАМ</div>
+          <div style={{ border: "1px solid #1a2535", borderRadius: 8, overflow: "hidden", marginBottom: 24 }}>
+            <table style={{ width: "100%", borderCollapse: "collapse", fontFamily: "monospace", fontSize: 11 }}>
+              <thead>
+                <tr style={{ background: "#0a0e17", color: "#3d5068" }}>
+                  {["ЭТАП","ТИП","VU","ИТОГО","OK","ERROR%","AVG","P50","P95","P99","MAX","RPS"].map((h) => (
+                    <th key={h} style={{ padding: "8px 12px", textAlign: "left", fontSize: 10, letterSpacing: "0.06em", fontWeight: 600 }}>{h}</th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {Object.entries(report.per_stage)
+                  .sort(([a], [b]) => +a - +b)
+                  .map(([stageId, mx], i) => {
+                    const col = STAGE_COLORS[mx.type] || "#64748b";
+                    return (
+                      <tr key={stageId} style={{ borderTop: "1px solid #1a2535", background: i % 2 === 0 ? "transparent" : "#0a0e1715" }}>
+                        <td style={{ padding: "8px 12px", color: "#64748b" }}>#{stageId}</td>
+                        <td style={{ padding: "8px 12px", color: col, fontWeight: 700 }}>{mx.type ?? "—"}</td>
+                        <td style={{ padding: "8px 12px", color: "#64748b" }}>{mx.target_users ?? "—"}</td>
+                        <td style={{ padding: "8px 12px", color: "#64748b" }}>{mx.total_requests}</td>
+                        <td style={{ padding: "8px 12px", color: "#4ade80" }}>{mx.success_count}</td>
+                        <td style={{ padding: "8px 12px", color: mx.error_rate > 0.05 ? "#f87171" : "#4a5568" }}>{fmt.pct(mx.error_rate)}</td>
+                        <td style={{ padding: "8px 12px", color: "#94a3b8" }}>{fmt.ms(mx.avg_latency_ms)}</td>
+                        <td style={{ padding: "8px 12px", color: "#64748b" }}>{fmt.ms(mx.p50_ms)}</td>
+                        <td style={{ padding: "8px 12px", color: "#f59e0b" }}>{fmt.ms(mx.p95_ms)}</td>
+                        <td style={{ padding: "8px 12px", color: "#f87171" }}>{fmt.ms(mx.p99_ms)}</td>
+                        <td style={{ padding: "8px 12px", color: "#94a3b8" }}>{fmt.ms(mx.max_latency_ms)}</td>
+                        <td style={{ padding: "8px 12px", color: "#22d3ee" }}>{fmt.rps(mx.rps)}</td>
+                      </tr>
+                    );
+                  })}
+              </tbody>
+            </table>
           </div>
         </>
       )}
