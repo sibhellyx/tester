@@ -62,9 +62,29 @@ func (b *ReportBuilder) BuildReport() models.TestReport {
 		EndTime:      endTime,
 		Summary:      b.metrics,
 		PerRequest:   b.perRequest,
-		PerStage:     b.perStage,
+		PerStage:     b.buildPerStage(),
 		Charts:       charts,
 	}
+}
+
+// buildPerStage обогащает метрики каждого этапа типом и числом пользователей из сценария.
+func (b *ReportBuilder) buildPerStage() map[int]models.StageMetrics {
+	// Строим индекс этапов по ID для быстрого поиска.
+	stageInfo := make(map[int]models.Stage, len(b.scenario.Stages))
+	for _, s := range b.scenario.Stages {
+		stageInfo[s.ID] = s
+	}
+
+	result := make(map[int]models.StageMetrics, len(b.perStage))
+	for id, m := range b.perStage {
+		sm := models.StageMetrics{Metrics: m}
+		if s, ok := stageInfo[id]; ok {
+			sm.Type = s.Type
+			sm.TargetUsers = s.TargetUsers
+		}
+		result[id] = sm
+	}
+	return result
 }
 
 // BuildChartData - строит набор графиков для отчёта.
@@ -279,7 +299,7 @@ func (b *ReportBuilder) groupByTimeBucket(window time.Duration) []timeBucket {
 
 func roundFloat(val float64, precision int) float64 {
 	ratio := 1.0
-	for i := 0; i < precision; i++ {
+	for range precision {
 		ratio *= 10
 	}
 	return float64(int(val*ratio+0.5)) / ratio

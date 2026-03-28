@@ -67,8 +67,9 @@ func (s *TestResultsService) GetReport(ctx context.Context, runID string) (*mode
 	for name, m := range r.PerRequest {
 		r.PerRequest[name] = normalizeMetrics(m)
 	}
-	for id, m := range r.PerStage {
-		r.PerStage[id] = normalizeMetrics(m)
+	for id, sm := range r.PerStage {
+		sm.Metrics = normalizeMetrics(sm.Metrics)
+		r.PerStage[id] = sm
 	}
 	return &r, nil
 }

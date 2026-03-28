@@ -34,14 +34,21 @@ type ChartData struct {
 	Series []Series `json:"series"`
 }
 
+// StageMetrics - метрики одного этапа теста вместе с его параметрами.
+type StageMetrics struct {
+	Type        StageType `json:"type"`         // тип этапа (ramp_up, steady, ramp_down)
+	TargetUsers int       `json:"target_users"` // целевое число пользователей
+	Metrics
+}
+
 // TestReport - полный отчёт по завершённому запуску.
 type TestReport struct {
-	RunID        string             `json:"run_id"`
-	ScenarioName string             `json:"scenario_name"`
-	StartTime    time.Time          `json:"start_time"`
-	EndTime      time.Time          `json:"end_time"`
-	Summary      Metrics            `json:"summary"`      // общая статистика
-	PerRequest   map[string]Metrics `json:"per_request"`  // метрики по каждому запросу
-	PerStage     map[int]Metrics    `json:"per_stage"`    // метрики по каждому этапу
-	Charts       []ChartData        `json:"charts"`
+	RunID        string                `json:"run_id"`
+	ScenarioName string                `json:"scenario_name"`
+	StartTime    time.Time             `json:"start_time"`
+	EndTime      time.Time             `json:"end_time"`
+	Summary      Metrics               `json:"summary"`      // общая статистика
+	PerRequest   map[string]Metrics    `json:"per_request"`  // метрики по каждому запросу
+	PerStage     map[int]StageMetrics  `json:"per_stage"`    // метрики по каждому этапу
+	Charts       []ChartData           `json:"charts"`
 }

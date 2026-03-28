@@ -70,7 +70,7 @@ func (r *TestResultsRepository) GetCallResults(ctx context.Context, runID string
 	return results, nil
 }
 
-// GetRunWithScenario возвращает запуск вместе со сценарием одним JOIN-запросом.
+// GetRunWithScenario возвращает запуск вместе со сценарием и его этапами.
 func (r *TestResultsRepository) GetRunWithScenario(ctx context.Context, runID string) (*models.TestRun, *models.TestScenario, error) {
 	const q = `
 		SELECT
@@ -96,7 +96,38 @@ func (r *TestResultsRepository) GetRunWithScenario(ctx context.Context, runID st
 		return nil, nil, fmt.Errorf("get run with scenario: %w", err)
 	}
 
+	// Загружаем этапы сценария — нужны для обогащения per-stage метрик в отчёте.
+	scenario.Stages, err = r.loadStages(ctx, scenario.ID)
+	if err != nil {
+		return nil, nil, err
+	}
+
 	return &run, &scenario, nil
+}
+
+// loadStages загружает этапы сценария (без запросов — только метаданные).
+func (r *TestResultsRepository) loadStages(ctx context.Context, scenarioID string) ([]models.Stage, error) {
+	const q = `
+		SELECT id, type, duration, target_users
+		FROM stages
+		WHERE scenario_id = $1
+		ORDER BY id`
+
+	rows, err := r.db.QueryContext(ctx, q, scenarioID)
+	if err != nil {
+		return nil, fmt.Errorf("load stages: %w", err)
+	}
+	defer rows.Close()
+
+	var stages []models.Stage
+	for rows.Next() {
+		var s models.Stage
+		if err = rows.Scan(&s.ID, &s.Type, &s.Duration, &s.TargetUsers); err != nil {
+			return nil, fmt.Errorf("scan stage: %w", err)
+		}
+		stages = append(stages, s)
+	}
+	return stages, rows.Err()
 }
 
 // GetListWithStatus возвращает все запуски со сценариями, отсортированные от новых к старым.
