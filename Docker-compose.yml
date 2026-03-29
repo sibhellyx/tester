@@ -18,6 +18,8 @@ services:
     image: postgres:16-alpine
     container_name: postgres
     restart: unless-stopped
+    labels:
+      tester.internal: "true"
 
     ports:
       - "5432:5432"
@@ -59,6 +61,8 @@ services:
       dockerfile: Dockerfile
     container_name: tester
     restart: unless-stopped
+    labels:
+      tester.internal: "true"
 
     ports:
       - "8080:8080"
@@ -118,6 +122,8 @@ services:
     image: prom/prometheus:v2.51.2
     container_name: prometheus
     restart: unless-stopped
+    labels:
+      tester.internal: "true"
 
     ports:
       - "9090:9090"
@@ -150,6 +156,8 @@ services:
     image: grafana/loki:3.0.0
     container_name: loki
     restart: unless-stopped
+    labels:
+      tester.internal: "true"
 
     ports:
       - "3100:3100"
@@ -183,6 +191,8 @@ services:
     image: grafana/promtail:3.0.0
     container_name: promtail
     restart: unless-stopped
+    labels:
+      tester.internal: "true"
 
     volumes:
       - ./observability/promtail/promtail.yml:/etc/promtail/config.yml:ro
@@ -211,6 +221,8 @@ services:
     image: grafana/grafana:10.4.2
     container_name: grafana
     restart: unless-stopped
+    labels:
+      tester.internal: "true"
 
     ports:
       - "3000:3000"

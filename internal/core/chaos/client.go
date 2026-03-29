@@ -169,6 +169,7 @@ func (c *DockerClient) GetStats(ctx context.Context, containerID string) (*Conta
 // ListContainers возвращает список запущенных контейнеров.
 // Только running-контейнеры подходят для воспроизведения сбоев —
 // остановленные нельзя атаковать сетевыми командами или лимитами ресурсов.
+// Контейнеры собственной инфраструктуры (помечены лейблом tester.internal=true) исключаются.
 func (c *DockerClient) ListContainers(ctx context.Context) ([]ContainerInfo, error) {
 	containers, err := c.client.ContainerList(ctx, client.ContainerListOptions{
 		All: false, // только running, не stopped/paused
@@ -179,6 +180,11 @@ func (c *DockerClient) ListContainers(ctx context.Context) ([]ContainerInfo, err
 
 	result := make([]ContainerInfo, 0, len(containers.Items))
 	for _, ct := range containers.Items {
+		// Исключаем контейнеры собственной инфраструктуры сервиса.
+		if ct.Labels["tester.internal"] == "true" {
+			continue
+		}
+
 		name := ct.ID[:12] // fallback если имён нет
 		if len(ct.Names) > 0 {
 			// Docker возвращает имена с ведущим "/", обрезаем.
