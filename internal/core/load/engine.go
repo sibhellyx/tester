@@ -177,6 +177,70 @@ func (e *Engine) ExecuteStage(
 			}
 		}
 
+	case models.StagePeak:
+		// Стрессовый пик: мгновенный скачок до TargetUsers, удержание Duration секунд,
+		// затем мгновенный возврат к базовому уровню.
+
+		// Определяем базовый уровень: явно заданный или текущий размер пула.
+		baseline := pool.Len()
+		if stage.BaselineUsers > 0 {
+			baseline = stage.BaselineUsers
+		}
+
+		// Мгновенно выставляем пиковое число пользователей.
+		current := pool.Len()
+		delta := stage.TargetUsers - current
+		switch {
+		case delta > 0:
+			e.logger.Info("Peak: spiking up",
+				slog.Int("baseline", baseline),
+				slog.Int("peak", stage.TargetUsers),
+				slog.Int("spawning", delta),
+			)
+			pool.Spawn(ctx, delta, e.attacker, results)
+		case delta < 0:
+			e.logger.Info("Peak: reducing to peak level",
+				slog.Int("current", current),
+				slog.Int("peak", stage.TargetUsers),
+				slog.Int("killing", -delta),
+			)
+			pool.Kill(-delta)
+		default:
+			e.logger.Info("Peak: already at peak level", slog.Int("peak", stage.TargetUsers))
+		}
+
+		// Удерживаем пиковую нагрузку до истечения длительности этапа.
+		<-stageCtx.Done()
+
+		// Мгновенно возвращаемся к базовому уровню.
+		current = pool.Len()
+		toReturn := current - baseline
+		switch {
+		case toReturn > 0:
+			e.logger.Info("Peak: returning to baseline",
+				slog.Int("peak", current),
+				slog.Int("baseline", baseline),
+				slog.Int("killing", toReturn),
+			)
+			pool.Kill(toReturn)
+		case toReturn < 0:
+			e.logger.Info("Peak: baseline above peak, spawning to baseline",
+				slog.Int("current", current),
+				slog.Int("baseline", baseline),
+				slog.Int("spawning", -toReturn),
+			)
+			pool.Spawn(ctx, -toReturn, e.attacker, results)
+		default:
+			e.logger.Info("Peak: pool already at baseline", slog.Int("baseline", baseline))
+		}
+
+		e.logger.Info("Peak: spike completed",
+			slog.Int("stage_id", stage.ID),
+			slog.Int("baseline", baseline),
+		)
+		// Возвращаемся досрочно — stageCtx уже завершён, повторное ожидание не нужно.
+		return
+
 	default:
 		e.logger.Warn("Unknown stage type", slog.String("type", string(stage.Type)))
 	}

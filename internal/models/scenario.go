@@ -19,15 +19,21 @@ const (
 	StageRampUp   StageType = "ramp_up"   // Плавный разгон (линейный рост пользователей).
 	StageSteady   StageType = "steady"    // Постоянная нагрузка (фиксированное число пользователей).
 	StageRampDown StageType = "ramp_down" // Плавное снижение (линейное уменьшение).
+	StagePeak     StageType = "spike"     // Стрессовый пик: мгновенный скачок до TargetUsers, удержание, возврат к базовому уровню.
 )
 
 // Stage - один этап нагрузочного тестирования.
 type Stage struct {
 	ID          int           `json:"id"`           // Порядковый номер этапа (1, 2, 3...).
-	Type        StageType     `json:"type"`         // Тип этапа (ramp_up, steady, ramp_down).
+	Type        StageType     `json:"type"`         // Тип этапа (ramp_up, steady, ramp_down, spike).
 	Duration    int           `json:"duration"`     // Длительность этапа в секундах.
 	TargetUsers int           `json:"target_users"` // Целевое количество пользователей (VU) к концу этапа.
 	Requests    []TestRequest `json:"requests"`     // Набор запросов для этого этапа (с весами).
+
+	// Параметры стрессового пика (только для type=spike).
+	// Количество пользователей, к которому нужно вернуться после пика.
+	// Если 0 — возврат к числу пользователей, которое было в пуле до начала этапа.
+	BaselineUsers int `json:"baseline_users,omitempty"`
 
 	// Хаос-инжиниринг.
 	ChaosEvents []ChaosParams `json:"chaos_events,omitempty"`
@@ -163,6 +169,13 @@ func validateStages(stages []Stage) (int, error) {
 		}
 
 		totalDuration += stage.Duration
+
+		// Валидация параметров стрессового пика.
+		if stage.Type == StagePeak {
+			if stage.BaselineUsers < 0 {
+				return -1, fmt.Errorf("stage #%d (spike): baseline_users cannot be negative", i+1)
+			}
+		}
 
 		// валидация сбоев при наличии.
 		for j, chaos := range stage.ChaosEvents {
