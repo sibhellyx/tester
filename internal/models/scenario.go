@@ -149,8 +149,14 @@ func validateStages(stages []Stage) (int, error) {
 		if stage.Duration <= 0 {
 			return -1, fmt.Errorf("stage #%d duration must be positive", i+1)
 		}
-		if stage.TargetUsers <= 0 {
-			return -1, fmt.Errorf("stage #%d target_users must be positive", i+1)
+		if stage.Type == StageRampDown {
+			if stage.TargetUsers < 0 {
+				return -1, fmt.Errorf("stage #%d (ramp_down) target_users cannot be negative", i+1)
+			}
+		} else {
+			if stage.TargetUsers <= 0 {
+				return -1, fmt.Errorf("stage #%d target_users must be positive", i+1)
+			}
 		}
 		if len(stage.Requests) == 0 {
 			return -1, fmt.Errorf("stage #%d must have at least one request", i+1)
