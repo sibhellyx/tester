@@ -298,6 +298,7 @@ export function RequestRow({ req, onChange, onRemove, totalWeight }) {
 
 export function StageEditor({ stage, idx, onChange, onRemove, containers }) {
   const totalWeight = (stage.requests || []).reduce((s, r) => s + (r.probability ?? 0), 0);
+  const [vuStr, setVuStr] = useState(stage.target_users == null ? "" : String(stage.target_users));
 
   const updateReq = (ri, field, val) => {
     const reqs = [...(stage.requests || [])];
@@ -343,8 +344,17 @@ export function StageEditor({ stage, idx, onChange, onRemove, containers }) {
           </div>
           <div>
             <label style={S.label}>ЦЕЛЕВЫЕ VU (пользователи)</label>
-            <input style={S.input} type="number" min={1} value={stage.target_users || ""}
-              placeholder="10" onFocus={(e) => e.target.select()} onChange={(e) => onChange("target_users", +e.target.value)} />
+            <input style={S.input} type="number" min={stage.type === "ramp_down" ? 0 : 1} value={vuStr}
+              placeholder="10" onFocus={(e) => e.target.select()}
+              onChange={(e) => {
+                const raw = e.target.value;
+                if (raw === "") { setVuStr(""); onChange("target_users", 0); return; }
+                const num = +raw;
+                if (num < 0) return;
+                if (num === 0 && stage.type !== "ramp_down") return;
+                setVuStr(raw);
+                onChange("target_users", num);
+              }} />
           </div>
         </div>
 
