@@ -132,9 +132,10 @@ export function ChaosEventForm({ event, onChange, onRemove, containers }) {
 }
 
 export function RequestRow({ req, onChange, onRemove, totalWeight }) {
-  const weightPct = totalWeight > 0 ? Math.round(((req.probability ?? 1) / totalWeight) * 100) : 0;
+  const weightPct = totalWeight > 0 ? Math.round(((req.probability ?? 0) / totalWeight) * 100) : 0;
   const METHOD_COLORS = { GET: "#4ade80", POST: "#22d3ee", PUT: "#f59e0b", DELETE: "#f87171", PATCH: "#a78bfa" };
   const iStyle = { ...S.input, fontSize: 11 };
+  const sel = (e) => e.target.select();
   const hasBody = ["POST", "PUT", "PATCH"].includes(req.method);
 
   const [codeInput, setCodeInput] = useState("");
@@ -174,8 +175,8 @@ export function RequestRow({ req, onChange, onRemove, totalWeight }) {
         </div>
         <div>
           <label style={S.label}>ВЕРОЯТНОСТЬ ({weightPct}%)</label>
-          <input style={iStyle} type="number" min={0} value={req.probability ?? 1}
-            onChange={(e) => onChange("probability", +e.target.value)} />
+          <input style={iStyle} type="number" min={0} value={req.probability || ""}
+            placeholder="1" onFocus={sel} onChange={(e) => onChange("probability", +e.target.value)} />
         </div>
         <button onClick={onRemove} style={{ ...S.btn("danger"), padding: "6px 8px", alignSelf: "end" }}>✕</button>
       </div>
@@ -187,7 +188,7 @@ export function RequestRow({ req, onChange, onRemove, totalWeight }) {
           {(req.expected_codes || [200]).map((code) => (
             <span key={code} style={{
               display: "inline-flex", alignItems: "center", gap: 3,
-              padding: "2px 7px", borderRadius: 3, fontSize: 10, fontFamily: "monospace", fontWeight: 700,
+              height: 32, padding: "0 7px", borderRadius: 3, fontSize: 10, fontFamily: "monospace", fontWeight: 700,
               color: code < 400 ? "#4ade80" : "#f87171",
               border: `1px solid ${code < 400 ? "#4ade8040" : "#f8717140"}`,
               background: code < 400 ? "#4ade8012" : "#f8717112",
@@ -285,7 +286,7 @@ export function RequestRow({ req, onChange, onRemove, totalWeight }) {
         {hasBody && (
           <div>
             <label style={S.label}>BODY (JSON)</label>
-            <textarea style={{ ...iStyle, height: 34, resize: "vertical" }}
+            <textarea style={{ ...iStyle, height: 64, padding: "7px 10px", resize: "vertical" }}
               value={req.body || ""} onChange={(e) => onChange("body", e.target.value)}
               placeholder='{"key":"value"}' />
           </div>
@@ -332,19 +333,38 @@ export function StageEditor({ stage, idx, onChange, onRemove, containers }) {
               <option value="ramp_up">ramp_up — плавный разгон</option>
               <option value="steady">steady — стабильная нагрузка</option>
               <option value="ramp_down">ramp_down — плавное снижение</option>
+              <option value="spike">spike — стрессовый пик</option>
             </select>
           </div>
           <div>
             <label style={S.label}>ДЛИТЕЛЬНОСТЬ (секунд)</label>
-            <input style={S.input} type="number" min={1} value={stage.duration}
-              onChange={(e) => onChange("duration", +e.target.value)} />
+            <input style={S.input} type="number" min={1} value={stage.duration || ""}
+              placeholder="30" onFocus={(e) => e.target.select()} onChange={(e) => onChange("duration", +e.target.value)} />
           </div>
           <div>
             <label style={S.label}>ЦЕЛЕВЫЕ VU (пользователи)</label>
-            <input style={S.input} type="number" min={1} value={stage.target_users}
-              onChange={(e) => onChange("target_users", +e.target.value)} />
+            <input style={S.input} type="number" min={1} value={stage.target_users || ""}
+              placeholder="10" onFocus={(e) => e.target.select()} onChange={(e) => onChange("target_users", +e.target.value)} />
           </div>
         </div>
+
+        {stage.type === "spike" && (
+          <div style={{ marginBottom: 18 }}>
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 2fr", gap: 10, padding: "12px 14px", background: "rgba(244,63,94,0.04)", border: "1px solid rgba(244,63,94,0.15)", borderRadius: 6 }}>
+              <div>
+                <label style={S.label}>BASELINE USERS (после пика)</label>
+                <input style={S.input} type="number" min={0} value={stage.baseline_users ?? 0}
+                  onFocus={(e) => e.target.select()} onChange={(e) => onChange("baseline_users", +e.target.value)} />
+              </div>
+              <div style={{ display: "flex", alignItems: "flex-end", paddingBottom: 2 }}>
+                <span style={{ fontSize: 9, color: "#64748b", fontFamily: "monospace", lineHeight: 1.5 }}>
+                  Пик до {stage.target_users} VU, затем возврат к {stage.baseline_users || "предыдущему уровню"} VU.{"\n"}
+                  0 = вернуться к числу VU до начала этапа.
+                </span>
+              </div>
+            </div>
+          </div>
+        )}
 
         <div style={{ marginBottom: 18 }}>
           <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 8 }}>
@@ -588,6 +608,7 @@ export function ScenarioForm({ initial, onSave, onCancel, containers }) {
     if (!sc.stages.length)   return setErr("Нужен хотя бы один этап");
     for (let i = 0; i < sc.stages.length; i++) {
       const st = sc.stages[i];
+      if (st.type === "spike" && (st.baseline_users ?? 0) < 0) return setErr(`Этап ${i + 1} (spike): baseline_users не может быть отрицательным`);
       if (!st.requests?.length) return setErr(`Этап ${i + 1}: добавьте хотя бы один запрос`);
       const wSum = st.requests.reduce((s, r) => s + (r.probability ?? 0), 0);
       if (wSum <= 0) return setErr(`Этап ${i + 1}: суммарная вероятность запросов должна быть > 0`);

@@ -6,7 +6,7 @@ export const STATUS_META = {
   failed:   { color: "#f87171", bg: "rgba(248,113,113,0.10)", dot: "#f87171" },
 };
 
-export const STAGE_COLORS = { ramp_up: "#22d3ee", steady: "#4ade80", ramp_down: "#f59e0b" };
+export const STAGE_COLORS = { ramp_up: "#22d3ee", steady: "#4ade80", ramp_down: "#f59e0b", spike: "#f43f5e" };
 
 export const CHAOS_COLORS = {
   component_shutdown: "#f87171",

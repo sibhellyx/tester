@@ -1,7 +1,7 @@
 export const S = {
   input: {
     background: "#0a0e17", border: "1px solid #1e2a3a", borderRadius: 4,
-    color: "#e2e8f0", padding: "7px 10px", fontFamily: "'JetBrains Mono', 'Fira Mono', monospace",
+    color: "#e2e8f0", padding: "0 10px", height: 32, fontFamily: "'JetBrains Mono', 'Fira Mono', monospace",
     fontSize: 12, outline: "none", width: "100%", boxSizing: "border-box",
   },
   label: {
