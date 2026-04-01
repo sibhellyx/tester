@@ -7,7 +7,6 @@ import (
 	"net/http"
 
 	"github.com/gin-gonic/gin"
-	"github.com/sibhellyx/tester/internal/core/chaos"
 	"github.com/sibhellyx/tester/internal/models"
 	"github.com/sibhellyx/tester/internal/service"
 )
@@ -19,7 +18,7 @@ type TestManagementServiceInterface interface {
 	ListScenarios(ctx context.Context) ([]models.TestScenario, error)
 	GetScenario(ctx context.Context, id string) (*models.TestScenario, error)
 	UpdateScenario(ctx context.Context, s models.TestScenario) error
-	ListContainers(ctx context.Context) ([]chaos.ContainerInfo, error)
+	ListContainers(ctx context.Context) ([]models.ContainerInfo, error)
 }
 
 // ScenarioHandler обрабатывает HTTP-запросы, связанные со сценариями.
@@ -226,7 +225,7 @@ func (h *ScenarioHandler) ListContainers(c *gin.Context) {
 	}
 
 	if containers == nil {
-		containers = []chaos.ContainerInfo{}
+		containers = []models.ContainerInfo{}
 	}
 
 	c.JSON(http.StatusOK, containers)

@@ -7,13 +7,12 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/sibhellyx/tester/internal/core/chaos"
 	"github.com/sibhellyx/tester/internal/models"
 )
 
 type DockerClinetStatsInterface interface {
 	// GetStats возвращает состояние контейнера.
-	GetStats(ctx context.Context, containerID string) (*chaos.ContainerStats, error)
+	GetStats(ctx context.Context, containerID string) (*models.ContainerStats, error)
 }
 
 type ResourceMonitor struct {

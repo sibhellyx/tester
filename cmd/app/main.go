@@ -21,6 +21,7 @@ import (
 	"github.com/sibhellyx/tester/internal/processor"
 	"github.com/sibhellyx/tester/internal/service"
 	"github.com/sibhellyx/tester/pkg/config"
+	"github.com/sibhellyx/tester/pkg/docker"
 	"github.com/sibhellyx/tester/pkg/logger"
 )
 
@@ -61,7 +62,7 @@ func main() {
 
 	// Инициализаци движка для стрессового тестирования.
 	var chaosEngine *chaos.Engine
-	dockerClient, err := chaos.NewDockerClient()
+	dockerClient, err := docker.NewDockerClient()
 	if err != nil {
 		log.Warn("Failed to connect to Docker. Chaos Engine disabled.", slog.String("error", err.Error()))
 	} else {

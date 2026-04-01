@@ -1,4 +1,4 @@
-package chaos
+package docker
 
 import (
 	"context"
@@ -9,25 +9,12 @@ import (
 
 	"github.com/moby/moby/api/types/container"
 	"github.com/moby/moby/client"
+	"github.com/sibhellyx/tester/internal/models"
 )
-
-// ContainerInfo - информация о контейнере доступном для chaos-тестирования.
-type ContainerInfo struct {
-	ID     string
-	Name   string
-	Image  string
-	Status string
-}
-
-// ContainerStats — метрики ресурсов контейнера в момент снимка.
-type ContainerStats struct {
-	CPUPercent float64 // 0–100 * количество ядер
-	MemPercent float64 // 0–100
-}
 
 // DockerClient - структура обертка, для взаимодействия с контейнерами.
 type DockerClient struct {
-	client *client.Client
+	cli *client.Client
 }
 
 // NewDockerClient - функция инициализации клиента для работы с Docker Sdk.
@@ -36,17 +23,17 @@ func NewDockerClient() (*DockerClient, error) {
 	if err != nil {
 		return nil, fmt.Errorf("failed to create docker client: %w", err)
 	}
-	return &DockerClient{client: client}, nil
+	return &DockerClient{cli: client}, nil
 }
 
 // Close - функция закрывающая соединение с Docker.
 func (c *DockerClient) Close() error {
-	return c.client.Close()
+	return c.cli.Close()
 }
 
 // StartContainer - функция запускающая контейнер.
 func (c *DockerClient) StartContainer(ctx context.Context, containerID string) error {
-	_, err := c.client.ContainerStart(ctx, containerID, client.ContainerStartOptions{})
+	_, err := c.cli.ContainerStart(ctx, containerID, client.ContainerStartOptions{})
 	if err != nil {
 		return fmt.Errorf("failed to start container %s: %w", containerID, err)
 	}
@@ -58,7 +45,7 @@ func (c *DockerClient) StopContainer(ctx context.Context, containerID string, ti
 	options := client.ContainerStopOptions{
 		Timeout: &timeout,
 	}
-	_, err := c.client.ContainerStop(ctx, containerID, options)
+	_, err := c.cli.ContainerStop(ctx, containerID, options)
 	if err != nil {
 		return fmt.Errorf("failed to stop container %s: %w", containerID, err)
 	}
@@ -75,12 +62,12 @@ func (c *DockerClient) ExecCommand(ctx context.Context, containerID string, cmd 
 		Privileged:   true,   // Для сетевых команд (tc, iptables).
 		User:         "root", // Выполнние команды от root.
 	}
-	execCreateResp, err := c.client.ExecCreate(ctx, containerID, config)
+	execCreateResp, err := c.cli.ExecCreate(ctx, containerID, config)
 	if err != nil {
 		return fmt.Errorf("failed to create exec configuration: %w", err)
 	}
 	// Запуск выполнения и подключения к потокам (Exec Attach).
-	response, err := c.client.ExecAttach(ctx, execCreateResp.ID, client.ExecAttachOptions{})
+	response, err := c.cli.ExecAttach(ctx, execCreateResp.ID, client.ExecAttachOptions{})
 	if err != nil {
 		return fmt.Errorf("failed to attach to exec process: %w", err)
 	}
@@ -91,7 +78,7 @@ func (c *DockerClient) ExecCommand(ctx context.Context, containerID string, cmd 
 		return fmt.Errorf("error reading exec output: %w", err)
 	}
 
-	inspectResponse, err := c.client.ExecInspect(ctx, execCreateResp.ID, client.ExecInspectOptions{})
+	inspectResponse, err := c.cli.ExecInspect(ctx, execCreateResp.ID, client.ExecInspectOptions{})
 	if err != nil {
 		return fmt.Errorf("failed to inspect exec result: %w", err)
 	}
@@ -117,7 +104,7 @@ func (c *DockerClient) UpdateResources(ctx context.Context, containerID string, 
 	}
 
 	// Вызываем API.
-	_, err := c.client.ContainerUpdate(ctx, containerID, updateConfig)
+	_, err := c.cli.ContainerUpdate(ctx, containerID, updateConfig)
 	if err != nil {
 		return fmt.Errorf("failed to update resources for %s: %w", containerID, err)
 	}
@@ -126,9 +113,9 @@ func (c *DockerClient) UpdateResources(ctx context.Context, containerID string, 
 }
 
 // GetStats возвращает статистику контейнера по загруженности.
-func (c *DockerClient) GetStats(ctx context.Context, containerID string) (*ContainerStats, error) {
+func (c *DockerClient) GetStats(ctx context.Context, containerID string) (*models.ContainerStats, error) {
 	// false = один снимок, не бесконечный stream.
-	resp, err := c.client.ContainerStats(ctx, containerID, client.ContainerStatsOptions{
+	resp, err := c.cli.ContainerStats(ctx, containerID, client.ContainerStatsOptions{
 		Stream: false,
 	})
 	if err != nil {
@@ -160,7 +147,7 @@ func (c *DockerClient) GetStats(ctx context.Context, containerID string) (*Conta
 	usedMemory := float64(stats.MemoryStats.Usage - cache)
 	memPercent := (usedMemory / float64(stats.MemoryStats.Limit)) * 100.0
 
-	return &ContainerStats{
+	return &models.ContainerStats{
 		CPUPercent: cpuPercent,
 		MemPercent: memPercent,
 	}, nil
@@ -170,15 +157,15 @@ func (c *DockerClient) GetStats(ctx context.Context, containerID string) (*Conta
 // Только running-контейнеры подходят для воспроизведения сбоев —
 // остановленные нельзя атаковать сетевыми командами или лимитами ресурсов.
 // Контейнеры собственной инфраструктуры (помечены лейблом tester.internal=true) исключаются.
-func (c *DockerClient) ListContainers(ctx context.Context) ([]ContainerInfo, error) {
-	containers, err := c.client.ContainerList(ctx, client.ContainerListOptions{
+func (c *DockerClient) ListContainers(ctx context.Context) ([]models.ContainerInfo, error) {
+	containers, err := c.cli.ContainerList(ctx, client.ContainerListOptions{
 		All: false, // только running, не stopped/paused
 	})
 	if err != nil {
 		return nil, fmt.Errorf("failed to list containers: %w", err)
 	}
 
-	result := make([]ContainerInfo, 0, len(containers.Items))
+	result := make([]models.ContainerInfo, 0, len(containers.Items))
 	for _, ct := range containers.Items {
 		// Исключаем контейнеры собственной инфраструктуры сервиса.
 		if ct.Labels["tester.internal"] == "true" {
@@ -190,7 +177,7 @@ func (c *DockerClient) ListContainers(ctx context.Context) ([]ContainerInfo, err
 			// Docker возвращает имена с ведущим "/", обрезаем.
 			name = strings.TrimPrefix(ct.Names[0], "/")
 		}
-		result = append(result, ContainerInfo{
+		result = append(result, models.ContainerInfo{
 			ID:     ct.ID[:12], // короткий ID — удобнее для передачи в chaos events
 			Name:   name,
 			Image:  ct.Image,

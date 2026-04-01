@@ -7,17 +7,16 @@ import (
 	"os"
 	"testing"
 
-	"github.com/sibhellyx/tester/internal/core/chaos"
 	"github.com/sibhellyx/tester/internal/models"
 )
 
 // mockDockerClient реализует DockerClinetStatsInterface для тестов.
 type mockDockerClient struct {
-	stats *chaos.ContainerStats
+	stats *models.ContainerStats
 	err   error
 }
 
-func (m *mockDockerClient) GetStats(_ context.Context, _ string) (*chaos.ContainerStats, error) {
+func (m *mockDockerClient) GetStats(_ context.Context, _ string) (*models.ContainerStats, error) {
 	return m.stats, m.err
 }
 
@@ -87,7 +86,7 @@ func TestResourceMonitor_check_CPU_Violation(t *testing.T) {
 		TargetContainerID: "container1",
 		MaxCPUPercent:     f64(80),
 	}
-	docker := &mockDockerClient{stats: &chaos.ContainerStats{CPUPercent: 90, MemPercent: 10}}
+	docker := &mockDockerClient{stats: &models.ContainerStats{CPUPercent: 90, MemPercent: 10}}
 	m := NewResourceMonitor(sc, docker, testLogger())
 
 	m.check(context.Background())
@@ -107,7 +106,7 @@ func TestResourceMonitor_check_CPU_AtExactThreshold_Violation(t *testing.T) {
 		TargetContainerID: "container1",
 		MaxCPUPercent:     f64(80),
 	}
-	docker := &mockDockerClient{stats: &chaos.ContainerStats{CPUPercent: 80.0}}
+	docker := &mockDockerClient{stats: &models.ContainerStats{CPUPercent: 80.0}}
 	m := NewResourceMonitor(sc, docker, testLogger())
 
 	m.check(context.Background())
@@ -122,7 +121,7 @@ func TestResourceMonitor_check_CPU_BelowThreshold_NoViolation(t *testing.T) {
 		TargetContainerID: "container1",
 		MaxCPUPercent:     f64(80),
 	}
-	docker := &mockDockerClient{stats: &chaos.ContainerStats{CPUPercent: 79.9}}
+	docker := &mockDockerClient{stats: &models.ContainerStats{CPUPercent: 79.9}}
 	m := NewResourceMonitor(sc, docker, testLogger())
 
 	m.check(context.Background())
@@ -137,7 +136,7 @@ func TestResourceMonitor_check_RAM_Violation(t *testing.T) {
 		TargetContainerID: "container1",
 		MaxRAMPercent:     f64(70),
 	}
-	docker := &mockDockerClient{stats: &chaos.ContainerStats{CPUPercent: 10, MemPercent: 80}}
+	docker := &mockDockerClient{stats: &models.ContainerStats{CPUPercent: 10, MemPercent: 80}}
 	m := NewResourceMonitor(sc, docker, testLogger())
 
 	m.check(context.Background())
@@ -156,7 +155,7 @@ func TestResourceMonitor_check_RAM_BelowThreshold_NoViolation(t *testing.T) {
 		TargetContainerID: "container1",
 		MaxRAMPercent:     f64(70),
 	}
-	docker := &mockDockerClient{stats: &chaos.ContainerStats{CPUPercent: 10, MemPercent: 60}}
+	docker := &mockDockerClient{stats: &models.ContainerStats{CPUPercent: 10, MemPercent: 60}}
 	m := NewResourceMonitor(sc, docker, testLogger())
 
 	m.check(context.Background())
@@ -173,7 +172,7 @@ func TestResourceMonitor_check_BothThresholds_CPUViolatesFirst(t *testing.T) {
 		MaxCPUPercent:     f64(80),
 		MaxRAMPercent:     f64(70),
 	}
-	docker := &mockDockerClient{stats: &chaos.ContainerStats{CPUPercent: 90, MemPercent: 80}}
+	docker := &mockDockerClient{stats: &models.ContainerStats{CPUPercent: 90, MemPercent: 80}}
 	m := NewResourceMonitor(sc, docker, testLogger())
 
 	m.check(context.Background())

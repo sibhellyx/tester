@@ -7,7 +7,6 @@ import (
 	"log/slog"
 
 	"github.com/google/uuid"
-	"github.com/sibhellyx/tester/internal/core/chaos"
 	"github.com/sibhellyx/tester/internal/models"
 )
 
@@ -19,7 +18,7 @@ var (
 )
 
 type DockerClientInterface interface {
-	ListContainers(ctx context.Context) ([]chaos.ContainerInfo, error)
+	ListContainers(ctx context.Context) ([]models.ContainerInfo, error)
 }
 
 // ScenarioRepository определяет методы работы с БД.
@@ -144,6 +143,6 @@ func (s *TestManagementService) DeleteScenario(ctx context.Context, id string) e
 }
 
 // ListContainers возвращает список запущенных в системе контейнеров.
-func (s *TestManagementService) ListContainers(ctx context.Context) ([]chaos.ContainerInfo, error) {
+func (s *TestManagementService) ListContainers(ctx context.Context) ([]models.ContainerInfo, error) {
 	return s.client.ListContainers(ctx)
 }
