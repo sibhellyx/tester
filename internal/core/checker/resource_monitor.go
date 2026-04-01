@@ -10,14 +10,14 @@ import (
 	"github.com/sibhellyx/tester/internal/models"
 )
 
-type DockerClinetStatsInterface interface {
+type StatsProvider interface {
 	// GetStats возвращает состояние контейнера.
 	GetStats(ctx context.Context, containerID string) (*models.ContainerStats, error)
 }
 
 type ResourceMonitor struct {
 	conditions *models.StopConditions
-	docker     DockerClinetStatsInterface
+	docker     StatsProvider
 	logger     *slog.Logger
 
 	violated atomic.Bool
@@ -26,7 +26,7 @@ type ResourceMonitor struct {
 
 func NewResourceMonitor(
 	sc *models.StopConditions,
-	docker DockerClinetStatsInterface,
+	docker StatsProvider,
 	logger *slog.Logger,
 ) *ResourceMonitor {
 	return &ResourceMonitor{

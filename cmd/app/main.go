@@ -67,6 +67,7 @@ func main() {
 		log.Warn("Failed to connect to Docker. Chaos Engine disabled.", slog.String("error", err.Error()))
 	} else {
 		chaosEngine = chaos.NewEngine(log, dockerClient)
+		defer dockerClient.Close()
 		log.Info("Chaos Engine initialized successfully")
 	}
 

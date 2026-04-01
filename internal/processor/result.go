@@ -8,13 +8,6 @@ import (
 	"github.com/sibhellyx/tester/internal/models"
 )
 
-// ResultProcessorInterface - интерфейс для вычисления метрик.
-type ResultProcessorInterface interface {
-	ComputeMetrics(results []models.CallResult) models.Metrics
-	ComputePerRequest(results []models.CallResult) map[string]models.Metrics
-	ComputePerStage(results []models.CallResult) map[int]models.Metrics
-}
-
 // ResultProcessor вычисляет метрики по срезу результатов,
 type ResultProcessor struct{}
 

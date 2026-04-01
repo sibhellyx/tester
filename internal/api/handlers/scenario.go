@@ -11,8 +11,8 @@ import (
 	"github.com/sibhellyx/tester/internal/service"
 )
 
-// TestManagementServiceInterface определяет бизнес-логику управления сценариями.
-type TestManagementServiceInterface interface {
+// ScenarioService определяет бизнес-логику управления сценариями.
+type ScenarioService interface {
 	CreateScenario(ctx context.Context, s models.TestScenario) (string, error)
 	DeleteScenario(ctx context.Context, id string) error
 	ListScenarios(ctx context.Context) ([]models.TestScenario, error)
@@ -24,11 +24,11 @@ type TestManagementServiceInterface interface {
 // ScenarioHandler обрабатывает HTTP-запросы, связанные со сценариями.
 type ScenarioHandler struct {
 	logger  *slog.Logger
-	service TestManagementServiceInterface
+	service ScenarioService
 }
 
 // NewScenarioHandler - конструктор хендлера.
-func NewScenarioHandler(logger *slog.Logger, service TestManagementServiceInterface) *ScenarioHandler {
+func NewScenarioHandler(logger *slog.Logger, service ScenarioService) *ScenarioHandler {
 	return &ScenarioHandler{
 		logger:  logger,
 		service: service,

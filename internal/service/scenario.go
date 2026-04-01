@@ -17,12 +17,12 @@ var (
 	ErrRepoError        = errors.New("repository error")
 )
 
-type DockerClientInterface interface {
+type ContainerLister interface {
 	ListContainers(ctx context.Context) ([]models.ContainerInfo, error)
 }
 
 // ScenarioRepository определяет методы работы с БД.
-type ScenarioRepositoryInterface interface {
+type ScenarioRepository interface {
 	Create(ctx context.Context, s models.TestScenario) error
 	Get(ctx context.Context, id string) (*models.TestScenario, error)
 	List(ctx context.Context) ([]models.TestScenario, error)
@@ -33,12 +33,12 @@ type ScenarioRepositoryInterface interface {
 // TestManagementService реализует логику управления сценариями.
 type TestManagementService struct {
 	logger *slog.Logger
-	repo   ScenarioRepositoryInterface
-	client DockerClientInterface
+	repo   ScenarioRepository
+	client ContainerLister
 }
 
 // NewTestManagementService - конструктор.
-func NewTestManagementService(logger *slog.Logger, repo ScenarioRepositoryInterface, client DockerClientInterface) *TestManagementService {
+func NewTestManagementService(logger *slog.Logger, repo ScenarioRepository, client ContainerLister) *TestManagementService {
 	return &TestManagementService{
 		logger: logger,
 		repo:   repo,

@@ -10,7 +10,7 @@ import (
 	"github.com/sibhellyx/tester/internal/models"
 )
 
-// mockDockerClient реализует DockerClinetStatsInterface для тестов.
+// mockDockerClient реализует StatsProvider для тестов.
 type mockDockerClient struct {
 	stats *models.ContainerStats
 	err   error

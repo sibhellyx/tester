@@ -6,8 +6,8 @@ import (
 	"github.com/sibhellyx/tester/internal/models"
 )
 
-// RequestGeneratorInterface - интерфейс генератора, предоставляет метод для получения следующего запроса.
-type RequestGeneratorInterface interface {
+// RequestGenerator - интерфейс генератора, предоставляет метод для получения следующего запроса.
+type RequestGenerator interface {
 	Next() *models.TestRequest
 }
 
@@ -16,7 +16,7 @@ type RequestGeneratorInterface interface {
 // мгновенно переходят на запросы нового этапа без перезапуска горутин.
 type SharedGenerator struct {
 	mu      sync.RWMutex
-	gen     RequestGeneratorInterface
+	gen     RequestGenerator
 	stageID int
 }
 
@@ -25,7 +25,7 @@ func newSharedGenerator() *SharedGenerator {
 }
 
 // Set атомарно заменяет текущий генератор и stageID.
-func (g *SharedGenerator) Set(stageID int, gen RequestGeneratorInterface) {
+func (g *SharedGenerator) Set(stageID int, gen RequestGenerator) {
 	g.mu.Lock()
 	defer g.mu.Unlock()
 	g.gen = gen

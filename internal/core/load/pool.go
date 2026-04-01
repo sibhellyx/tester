@@ -33,7 +33,7 @@ func NewUserPool() *UserPool {
 
 // SetStage атомарно обновляет генератор и stageID для всех workers пула.
 // Должен вызываться перед каждым этапом — до Spawn/Kill.
-func (p *UserPool) SetStage(stageID int, gen RequestGeneratorInterface) {
+func (p *UserPool) SetStage(stageID int, gen RequestGenerator) {
 	p.sharedGen.Set(stageID, gen)
 }
 
@@ -52,7 +52,7 @@ func (p *UserPool) Len() int {
 func (p *UserPool) Spawn(
 	ctx context.Context,
 	n int,
-	attacker AttackerToolInterface,
+	attacker Shooter,
 	results chan<- models.CallResult,
 ) {
 	for i := 0; i < n; i++ {

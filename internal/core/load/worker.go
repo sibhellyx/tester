@@ -9,7 +9,7 @@ import (
 
 // stageAwareGenerator — интерфейс генератора, который требуется RunVirtualUser.
 type stageAwareGenerator interface {
-	Next() *models.TestRequest
+	RequestGenerator // переиспользуем Next()
 	CurrentStageID() int
 }
 
@@ -24,7 +24,7 @@ func RunVirtualUser(
 	ctx context.Context,
 	wg *sync.WaitGroup,
 	generator stageAwareGenerator,
-	attacker AttackerToolInterface,
+	attacker Shooter,
 	results chan<- models.CallResult,
 ) {
 	defer wg.Done()

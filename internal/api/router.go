@@ -10,7 +10,7 @@ import (
 	ginSwagger "github.com/swaggo/gin-swagger"
 )
 
-type ScenarioHandlerInterface interface {
+type ScenarioHandler interface {
 	CreateScenario(c *gin.Context)
 	GetScenario(c *gin.Context)
 	ListScenarios(c *gin.Context)
@@ -19,7 +19,7 @@ type ScenarioHandlerInterface interface {
 	ListContainers(c *gin.Context)
 }
 
-type TestRunHandlerInterface interface {
+type RunHandler interface {
 	StartTest(c *gin.Context)  // POST /scenarios/:id/runs
 	StopTest(c *gin.Context)   // POST /runs/:run_id/stop
 	GetStatus(c *gin.Context)  // GET  /runs/:run_id
@@ -27,7 +27,7 @@ type TestRunHandlerInterface interface {
 	GetSummary(c *gin.Context) // GET  /runs/:run_id/summary
 }
 
-type TestResultsHandlerInterface interface {
+type ResultsHandler interface {
 	GetReport(c *gin.Context)         // GET /runs/:run_id/report
 	GetChartData(c *gin.Context)      // GET /runs/:run_id/charts
 	GetReportFile(c *gin.Context)     // GET /runs/:run_id/report/download
@@ -37,16 +37,16 @@ type TestResultsHandlerInterface interface {
 // Router структура для хранения обработчиков.
 type Router struct {
 	router          *gin.Engine
-	scenarioHandler ScenarioHandlerInterface
-	runHandler      TestRunHandlerInterface
-	resultsHandler  TestResultsHandlerInterface
+	scenarioHandler ScenarioHandler
+	runHandler      RunHandler
+	resultsHandler  ResultsHandler
 }
 
 // NewRouter - создает роутер.
 func NewRouter(
-	scenarioHandler ScenarioHandlerInterface,
-	runHandler TestRunHandlerInterface,
-	resultsHandler TestResultsHandlerInterface,
+	scenarioHandler ScenarioHandler,
+	runHandler RunHandler,
+	resultsHandler ResultsHandler,
 ) *Router {
 	return &Router{
 		router:          gin.Default(),

@@ -8,8 +8,8 @@ import (
 	"github.com/sibhellyx/tester/internal/models"
 )
 
-// AttackerToolInterface - интерфейс для выполнения запроса.
-type AttackerToolInterface interface {
+// Shooter - интерфейс для выполнения запроса.
+type Shooter interface {
 	Shoot(requestModel models.TestRequest) models.CallResult
 }
 
@@ -17,11 +17,11 @@ type AttackerToolInterface interface {
 // pool хранит активных виртуальных пользователей между этапами.
 type Engine struct {
 	logger   *slog.Logger
-	attacker AttackerToolInterface
+	attacker Shooter
 }
 
 // NewEngine создаёт оркестратор нагрузочного тестирования.
-func NewEngine(logger *slog.Logger, attacker AttackerToolInterface) *Engine {
+func NewEngine(logger *slog.Logger, attacker Shooter) *Engine {
 	return &Engine{
 		logger:   logger,
 		attacker: attacker,

@@ -20,7 +20,7 @@ var (
 )
 
 // TestRunRepository - интерфейс для работы с хранилищем запусков.
-type TestRunRepositoryInterface interface {
+type TestRunRepository interface {
 	Create(ctx context.Context, run models.TestRun) error
 	Get(ctx context.Context, id string) (*models.TestRun, error)
 	UpdateStatus(ctx context.Context, id string, status models.TestRunStatus, finishedAt *time.Time, errMsg string) error
@@ -29,8 +29,8 @@ type TestRunRepositoryInterface interface {
 	GetSummary(ctx context.Context, runID string) (*models.TestRunSummary, error)
 }
 
-// CoordinatorInterface - интерфейс оркестратора нагрузочного теста.
-type CoordinatorInterface interface {
+// Coordinator - интерфейс оркестратора нагрузочного теста.
+type Coordinator interface {
 	RunTest(ctx context.Context, scenario models.TestScenario) (<-chan models.CallResult, error)
 }
 
@@ -40,13 +40,21 @@ type activeRun struct {
 	done   <-chan struct{} // закрывается когда горутина завершилась
 }
 
+type containerStatsProvider interface {
+	GetStats(ctx context.Context, containerID string) (*models.ContainerStats, error)
+}
+
+type ScenarioGetter interface {
+	Get(ctx context.Context, id string) (*models.TestScenario, error)
+}
+
 // TestRunService реализует бизнес-логику управления запусками тестов.
 type TestRunService struct {
 	logger       *slog.Logger
-	coordinator  CoordinatorInterface
-	runRepo      TestRunRepositoryInterface
-	scenarioRepo ScenarioRepositoryInterface // переиспользуем уже существующий интерфейс из scenario.go
-	dockerClient checker.DockerClinetStatsInterface
+	coordinator  Coordinator
+	runRepo      TestRunRepository
+	scenarioRepo ScenarioGetter // переиспользуем уже существующий интерфейс из scenario.go
+	dockerClient containerStatsProvider
 
 	mu         sync.Mutex
 	activeRuns map[string]*activeRun // runID -> activeRun
@@ -55,10 +63,10 @@ type TestRunService struct {
 // NewTestRunService - конструктор.
 func NewTestRunService(
 	logger *slog.Logger,
-	coordinator CoordinatorInterface,
-	runRepo TestRunRepositoryInterface,
-	scenarioRepo ScenarioRepositoryInterface,
-	dockerClient checker.DockerClinetStatsInterface,
+	coordinator Coordinator,
+	runRepo TestRunRepository,
+	scenarioRepo ScenarioGetter,
+	dockerClient containerStatsProvider,
 ) *TestRunService {
 	return &TestRunService{
 		logger:       logger,

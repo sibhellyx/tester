@@ -12,8 +12,8 @@ import (
 	"github.com/sibhellyx/tester/internal/service"
 )
 
-// TestResultsServiceInterface - интерфейс сервиса результатов для хендлера.
-type TestResultsServiceInterface interface {
+// ResultsService - интерфейс сервиса результатов для хендлера.
+type ResultsService interface {
 	GetReport(ctx context.Context, runID string) (*models.TestReport, error)
 	GetChartData(ctx context.Context, runID string) ([]models.ChartData, error)
 	GenerateReportFile(ctx context.Context, runID string) (string, error)
@@ -23,11 +23,11 @@ type TestResultsServiceInterface interface {
 // TestResultsHandler обрабатывает HTTP-запросы для получения результатов тестов.
 type TestResultsHandler struct {
 	logger  *slog.Logger
-	service TestResultsServiceInterface
+	service ResultsService
 }
 
 // NewTestResultsHandler - конструктор.
-func NewTestResultsHandler(logger *slog.Logger, service TestResultsServiceInterface) *TestResultsHandler {
+func NewTestResultsHandler(logger *slog.Logger, service ResultsService) *TestResultsHandler {
 	return &TestResultsHandler{
 		logger:  logger,
 		service: service,

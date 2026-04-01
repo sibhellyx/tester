@@ -12,15 +12,21 @@ import (
 	"time"
 
 	"github.com/sibhellyx/tester/internal/models"
-	"github.com/sibhellyx/tester/internal/processor"
 	"github.com/sibhellyx/tester/internal/report"
 )
 
-// TestResultsRepositoryInterface - интерфейс репозитория результатов.
-type TestResultsRepositoryInterface interface {
+// TestResultsRepository - интерфейс репозитория результатов.
+type TestResultsRepository interface {
 	GetCallResults(ctx context.Context, runID string) ([]models.CallResult, error)
 	GetRunWithScenario(ctx context.Context, runID string) (*models.TestRun, *models.TestScenario, error)
 	GetListWithStatus(ctx context.Context) ([]models.TestWithStatus, error)
+}
+
+// metricsComputer вычисляет метрики по срезу результатов.
+type metricsComputer interface {
+	ComputeMetrics(results []models.CallResult) models.Metrics
+	ComputePerRequest(results []models.CallResult) map[string]models.Metrics
+	ComputePerStage(results []models.CallResult) map[int]models.Metrics
 }
 
 // TestResultsService реализует бизнес-логику получения результатов.
@@ -28,8 +34,8 @@ type TestResultsRepositoryInterface interface {
 // поверх загруженных из БД CallResult.
 type TestResultsService struct {
 	logger          *slog.Logger
-	repository      TestResultsRepositoryInterface
-	resultProcessor processor.ResultProcessorInterface
+	repository      TestResultsRepository
+	resultProcessor metricsComputer
 	// Директория для хранения сгенерированных файлов отчётов.
 	reportsDir string
 }
@@ -37,8 +43,8 @@ type TestResultsService struct {
 // NewTestResultsService - конструктор.
 func NewTestResultsService(
 	logger *slog.Logger,
-	repository TestResultsRepositoryInterface,
-	resultProcessor processor.ResultProcessorInterface,
+	repository TestResultsRepository,
+	resultProcessor metricsComputer,
 	reportsDir string,
 ) *TestResultsService {
 	return &TestResultsService{

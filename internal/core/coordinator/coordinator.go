@@ -10,11 +10,11 @@ import (
 	"github.com/sibhellyx/tester/internal/models"
 )
 
-type ChaosEngineInterface interface {
+type ChaosEngine interface {
 	ExecuteRunning(ctx context.Context, events []models.ChaosParams) *sync.WaitGroup
 }
 
-type LoadEngineInterface interface {
+type LoadEngine interface {
 	ExecuteStage(ctx context.Context, stage models.Stage, pool *load.UserPool, results chan<- models.CallResult)
 	Shutdown(pool *load.UserPool)
 }
@@ -23,13 +23,13 @@ type LoadEngineInterface interface {
 type Coordinator struct {
 	logger *slog.Logger
 	// LoadEngine для управления нагрузочным тестированием.
-	loadEngine LoadEngineInterface
+	loadEngine LoadEngine
 	// ChaosEngine для управления стрессовым тестированием.
-	chaosEngine ChaosEngineInterface
+	chaosEngine ChaosEngine
 }
 
 // NewCoordinator инициализация оркестратора для управления тестом.
-func NewCoordinator(logger *slog.Logger, load LoadEngineInterface, chaos ChaosEngineInterface) *Coordinator {
+func NewCoordinator(logger *slog.Logger, load LoadEngine, chaos ChaosEngine) *Coordinator {
 	return &Coordinator{
 		logger:      logger,
 		loadEngine:  load,

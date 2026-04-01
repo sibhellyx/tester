@@ -11,8 +11,8 @@ import (
 	"github.com/sibhellyx/tester/internal/service"
 )
 
-// TestRunServiceInterface - интерфейс для взаимодействия хендлера с сервисом.
-type TestRunServiceInterface interface {
+// RunService - интерфейс для взаимодействия хендлера с сервисом.
+type RunService interface {
 	StartTest(ctx context.Context, scenarioID string) (string, error)
 	StopTest(runID string) error
 	GetTestStatus(ctx context.Context, runID string) (*models.TestWithStatus, error)
@@ -23,11 +23,11 @@ type TestRunServiceInterface interface {
 // TestRunHandler обрабатывает HTTP-запросы управления тестовыми прогонами.
 type TestRunHandler struct {
 	logger  *slog.Logger
-	service TestRunServiceInterface
+	service RunService
 }
 
 // NewTestRunHandler - конструктор.
-func NewTestRunHandler(logger *slog.Logger, service TestRunServiceInterface) *TestRunHandler {
+func NewTestRunHandler(logger *slog.Logger, service RunService) *TestRunHandler {
 	return &TestRunHandler{
 		logger:  logger,
 		service: service,
