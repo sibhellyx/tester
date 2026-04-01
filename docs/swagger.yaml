@@ -1,15 +1,4 @@
 definitions:
-  chaos.ContainerInfo:
-    properties:
-      id:
-        type: string
-      image:
-        type: string
-      name:
-        type: string
-      status:
-        type: string
-    type: object
   models.ChaosParams:
     properties:
       cpu_quota:
@@ -70,6 +59,17 @@ definitions:
         description: '"line", "bar", "histogram"'
         type: string
     type: object
+  models.ContainerInfo:
+    properties:
+      id:
+        type: string
+      image:
+        type: string
+      name:
+        type: string
+      status:
+        type: string
+    type: object
   models.Metrics:
     properties:
       avg_latency_ms:
@@ -113,6 +113,12 @@ definitions:
     type: object
   models.Stage:
     properties:
+      baseline_users:
+        description: |-
+          Параметры стрессового пика (только для type=spike).
+          Количество пользователей, к которому нужно вернуться после пика.
+          Если 0 — возврат к числу пользователей, которое было в пуле до начала этапа.
+        type: integer
       chaos_events:
         description: Хаос-инжиниринг.
         items:
@@ -135,15 +141,57 @@ definitions:
       type:
         allOf:
         - $ref: '#/definitions/models.StageType'
-        description: Тип этапа (ramp_up, steady, ramp_down).
+        description: Тип этапа (ramp_up, steady, ramp_down, spike).
+    type: object
+  models.StageMetrics:
+    properties:
+      avg_latency_ms:
+        type: integer
+      error_count:
+        type: integer
+      error_rate:
+        description: 0.0 - 1.0
+        type: number
+      max_latency_ms:
+        type: integer
+      min_latency_ms:
+        type: integer
+      p50_ms:
+        type: integer
+      p90_ms:
+        type: integer
+      p95_ms:
+        type: integer
+      p99_ms:
+        type: integer
+      rps:
+        type: number
+      success_count:
+        type: integer
+      target_users:
+        description: целевое число пользователей
+        type: integer
+      total_bytes_in:
+        type: integer
+      total_bytes_out:
+        type: integer
+      total_requests:
+        type: integer
+      type:
+        allOf:
+        - $ref: '#/definitions/models.StageType'
+        description: тип этапа (ramp_up, steady, ramp_down)
     type: object
   models.StageType:
     enum:
     - ramp_up
     - steady
     - ramp_down
+    - spike
     type: string
     x-enum-comments:
+      StagePeak: 'Стрессовый пик: мгновенный скачок до TargetUsers, удержание, возврат
+        к базовому уровню.'
       StageRampDown: Плавное снижение (линейное уменьшение).
       StageRampUp: Плавный разгон (линейный рост пользователей).
       StageSteady: Постоянная нагрузка (фиксированное число пользователей).
@@ -151,10 +199,31 @@ definitions:
     - Плавный разгон (линейный рост пользователей).
     - Постоянная нагрузка (фиксированное число пользователей).
     - Плавное снижение (линейное уменьшение).
+    - 'Стрессовый пик: мгновенный скачок до TargetUsers, удержание, возврат к базовому
+      уровню.'
     x-enum-varnames:
     - StageRampUp
     - StageSteady
     - StageRampDown
+    - StagePeak
+  models.StopConditions:
+    properties:
+      error_rate_percent:
+        description: порог ошибок в процентах (1–100)
+        type: number
+      max_cpu_percent:
+        description: MaxCPUPercent и MaxRAMPercent требует TargetContainerID
+        type: number
+      max_ram_percent:
+        description: максимально допустимое использование RAM контейнера (1–95)
+        type: number
+      max_response_time_sec:
+        description: максимально допустимое время отклика в секундах
+        type: number
+      target_container:
+        description: ID контейнера
+        type: string
+    type: object
   models.TestReport:
     properties:
       charts:
@@ -167,6 +236,11 @@ definitions:
         additionalProperties:
           $ref: '#/definitions/models.Metrics'
         description: метрики по каждому запросу
+        type: object
+      per_stage:
+        additionalProperties:
+          $ref: '#/definitions/models.StageMetrics'
+        description: метрики по каждому этапу
         type: object
       run_id:
         type: string
@@ -294,6 +368,10 @@ definitions:
         items:
           $ref: '#/definitions/models.Stage'
         type: array
+      stop_conditions:
+        allOf:
+        - $ref: '#/definitions/models.StopConditions'
+        description: Критерии остановки для теста.
       total_duration:
         description: Общая длительность в секундах (защита от зависания).
         type: integer
@@ -318,7 +396,7 @@ paths:
           description: OK
           schema:
             items:
-              $ref: '#/definitions/chaos.ContainerInfo'
+              $ref: '#/definitions/models.ContainerInfo'
             type: array
         "500":
           description: Internal Server Error

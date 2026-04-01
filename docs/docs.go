@@ -31,7 +31,7 @@ const docTemplate = `{
                         "schema": {
                             "type": "array",
                             "items": {
-                                "$ref": "#/definitions/chaos.ContainerInfo"
+                                "$ref": "#/definitions/models.ContainerInfo"
                             }
                         }
                     },
@@ -698,23 +698,6 @@ const docTemplate = `{
         }
     },
     "definitions": {
-        "chaos.ContainerInfo": {
-            "type": "object",
-            "properties": {
-                "id": {
-                    "type": "string"
-                },
-                "image": {
-                    "type": "string"
-                },
-                "name": {
-                    "type": "string"
-                },
-                "status": {
-                    "type": "string"
-                }
-            }
-        },
         "models.ChaosParams": {
             "type": "object",
             "properties": {
@@ -800,6 +783,23 @@ const docTemplate = `{
                 }
             }
         },
+        "models.ContainerInfo": {
+            "type": "object",
+            "properties": {
+                "id": {
+                    "type": "string"
+                },
+                "image": {
+                    "type": "string"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "status": {
+                    "type": "string"
+                }
+            }
+        },
         "models.Metrics": {
             "type": "object",
             "properties": {
@@ -865,6 +865,10 @@ const docTemplate = `{
         "models.Stage": {
             "type": "object",
             "properties": {
+                "baseline_users": {
+                    "description": "Параметры стрессового пика (только для type=spike).\nКоличество пользователей, к которому нужно вернуться после пика.\nЕсли 0 — возврат к числу пользователей, которое было в пуле до начала этапа.",
+                    "type": "integer"
+                },
                 "chaos_events": {
                     "description": "Хаос-инжиниринг.",
                     "type": "array",
@@ -892,7 +896,67 @@ const docTemplate = `{
                     "type": "integer"
                 },
                 "type": {
-                    "description": "Тип этапа (ramp_up, steady, ramp_down).",
+                    "description": "Тип этапа (ramp_up, steady, ramp_down, spike).",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/models.StageType"
+                        }
+                    ]
+                }
+            }
+        },
+        "models.StageMetrics": {
+            "type": "object",
+            "properties": {
+                "avg_latency_ms": {
+                    "type": "integer"
+                },
+                "error_count": {
+                    "type": "integer"
+                },
+                "error_rate": {
+                    "description": "0.0 - 1.0",
+                    "type": "number"
+                },
+                "max_latency_ms": {
+                    "type": "integer"
+                },
+                "min_latency_ms": {
+                    "type": "integer"
+                },
+                "p50_ms": {
+                    "type": "integer"
+                },
+                "p90_ms": {
+                    "type": "integer"
+                },
+                "p95_ms": {
+                    "type": "integer"
+                },
+                "p99_ms": {
+                    "type": "integer"
+                },
+                "rps": {
+                    "type": "number"
+                },
+                "success_count": {
+                    "type": "integer"
+                },
+                "target_users": {
+                    "description": "целевое число пользователей",
+                    "type": "integer"
+                },
+                "total_bytes_in": {
+                    "type": "integer"
+                },
+                "total_bytes_out": {
+                    "type": "integer"
+                },
+                "total_requests": {
+                    "type": "integer"
+                },
+                "type": {
+                    "description": "тип этапа (ramp_up, steady, ramp_down)",
                     "allOf": [
                         {
                             "$ref": "#/definitions/models.StageType"
@@ -906,9 +970,11 @@ const docTemplate = `{
             "enum": [
                 "ramp_up",
                 "steady",
-                "ramp_down"
+                "ramp_down",
+                "spike"
             ],
             "x-enum-comments": {
+                "StagePeak": "Стрессовый пик: мгновенный скачок до TargetUsers, удержание, возврат к базовому уровню.",
                 "StageRampDown": "Плавное снижение (линейное уменьшение).",
                 "StageRampUp": "Плавный разгон (линейный рост пользователей).",
                 "StageSteady": "Постоянная нагрузка (фиксированное число пользователей)."
@@ -916,13 +982,40 @@ const docTemplate = `{
             "x-enum-descriptions": [
                 "Плавный разгон (линейный рост пользователей).",
                 "Постоянная нагрузка (фиксированное число пользователей).",
-                "Плавное снижение (линейное уменьшение)."
+                "Плавное снижение (линейное уменьшение).",
+                "Стрессовый пик: мгновенный скачок до TargetUsers, удержание, возврат к базовому уровню."
             ],
             "x-enum-varnames": [
                 "StageRampUp",
                 "StageSteady",
-                "StageRampDown"
+                "StageRampDown",
+                "StagePeak"
             ]
+        },
+        "models.StopConditions": {
+            "type": "object",
+            "properties": {
+                "error_rate_percent": {
+                    "description": "порог ошибок в процентах (1–100)",
+                    "type": "number"
+                },
+                "max_cpu_percent": {
+                    "description": "MaxCPUPercent и MaxRAMPercent требует TargetContainerID",
+                    "type": "number"
+                },
+                "max_ram_percent": {
+                    "description": "максимально допустимое использование RAM контейнера (1–95)",
+                    "type": "number"
+                },
+                "max_response_time_sec": {
+                    "description": "максимально допустимое время отклика в секундах",
+                    "type": "number"
+                },
+                "target_container": {
+                    "description": "ID контейнера",
+                    "type": "string"
+                }
+            }
         },
         "models.TestReport": {
             "type": "object",
@@ -941,6 +1034,13 @@ const docTemplate = `{
                     "type": "object",
                     "additionalProperties": {
                         "$ref": "#/definitions/models.Metrics"
+                    }
+                },
+                "per_stage": {
+                    "description": "метрики по каждому этапу",
+                    "type": "object",
+                    "additionalProperties": {
+                        "$ref": "#/definitions/models.StageMetrics"
                     }
                 },
                 "run_id": {
@@ -1121,6 +1221,14 @@ const docTemplate = `{
                     "items": {
                         "$ref": "#/definitions/models.Stage"
                     }
+                },
+                "stop_conditions": {
+                    "description": "Критерии остановки для теста.",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/models.StopConditions"
+                        }
+                    ]
                 },
                 "total_duration": {
                     "description": "Общая длительность в секундах (защита от зависания).",

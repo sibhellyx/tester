@@ -213,7 +213,7 @@ func (h *ScenarioHandler) UpdateScenario(c *gin.Context) {
 // @Description  Возвращает список запущенных Docker-контейнеров доступных для chaos-тестирования
 // @Tags         chaos
 // @Produce      json
-// @Success      200  {array}   chaos.ContainerInfo
+// @Success      200  {array}   models.ContainerInfo
 // @Failure      500  {object}  map[string]string
 // @Router       /api/v1/containers [get]
 func (h *ScenarioHandler) ListContainers(c *gin.Context) {
