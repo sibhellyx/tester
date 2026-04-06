@@ -82,11 +82,11 @@ export function RunsTab({ runs, setRuns, scenarios, loading, onRefresh }) {
           opacity: (loading && runs.length > 0) ? 0.7 : 1, // Мягкое затемнение при фоновом обновлении
           transition: "opacity 0.2s ease"
         }}>
-          <table style={{width:"100%", borderCollapse:"collapse", fontFamily:"monospace", fontSize:11}}>
+          <table style={{width:"100%", borderCollapse:"collapse", fontFamily:"monospace", fontSize:13}}>
             <thead>
               <tr style={{background:"#0a0e17", color:"#3d5068"}}>
                 {["СЦЕНАРИЙ","RUN ID","СТАТУС","ЭТАПОВ","СТАРТ","ФИНИШ",""].map(h=>(
-                  <th key={h} style={{padding:"9px 14px", textAlign:"left", fontSize:10, letterSpacing:"0.08em"}}>{h}</th>
+                  <th key={h} style={{padding:"9px 14px", textAlign:"left", fontSize:11, letterSpacing:"0.08em"}}>{h}</th>
                 ))}
               </tr>
             </thead>

@@ -9,7 +9,7 @@ export function StageTimeline({ stages }) {
   const total = stages.reduce((s, st) => s + (st.duration || 0), 0);
   return (
     <div style={{ marginBottom: 16 }}>
-      <div style={{ display: "flex", height: 28, borderRadius: 5, overflow: "hidden", gap: 2 }}>
+      <div style={{ display: "flex", height: 36, borderRadius: 5, overflow: "hidden", gap: 2 }}>
         {stages.map((st, i) => {
           const pct = total ? (st.duration / total) * 100 : 0;
           const col = STAGE_COLORS[st.type] || "#64748b";
@@ -19,7 +19,7 @@ export function StageTimeline({ stages }) {
               style={{
                 width: `${pct}%`, background: `${col}18`, border: `1px solid ${col}40`,
                 borderRadius: 3, display: "flex", alignItems: "center", justifyContent: "center",
-                fontSize: 9, color: col, fontFamily: "monospace", letterSpacing: "0.06em",
+                fontSize: 12, color: col, fontFamily: "monospace", letterSpacing: "0.06em",
                 overflow: "hidden", whiteSpace: "nowrap", cursor: "default", position: "relative",
               }}>
               {hasChaos && <span style={{ position: "absolute", top: 2, right: 3, fontSize: 8, color: "#f87171" }}>⚡</span>}
@@ -30,7 +30,7 @@ export function StageTimeline({ stages }) {
       </div>
       <div style={{ display: "flex", gap: 12, marginTop: 5 }}>
         {stages.map((st, i) => (
-          <span key={i} style={{ fontSize: 9, color: STAGE_COLORS[st.type] || "#64748b", fontFamily: "monospace" }}>
+          <span key={i} style={{ fontSize: 12, color: STAGE_COLORS[st.type] || "#64748b", fontFamily: "monospace" }}>
             {st.type} {fmt.dur(st.duration)}
           </span>
         ))}
@@ -323,7 +323,7 @@ export function StageEditor({ stage, idx, onChange, onRemove, containers }) {
           <span style={{ fontSize: 10, color: "#3d5068", fontFamily: "monospace" }}>{stage.target_users} VU · {fmt.dur(stage.duration)}</span>
           {(stage.chaos_events || []).length > 0 && <Pill color="#f87171" label={`⚡ ${stage.chaos_events.length} chaos`} />}
         </div>
-        <button onClick={onRemove} style={{ ...S.btn("danger"), padding: "2px 9px", fontSize: 10 }}>✕ убрать</button>
+        <button onClick={onRemove} style={{ ...S.btn("danger"), padding: "2px 9px", fontSize: 10 }}>✕ удалить</button>
       </div>
 
       <div style={{ padding: "14px 16px" }}>
@@ -464,7 +464,7 @@ export function StopConditionsForm({ sc, onChange, containers }) {
           {enabled && <Pill color="#f87171" label="включено" />}
           {!enabled && <span style={{ fontSize: 10, color: "#1e2a3a", fontFamily: "monospace" }}>тест всегда идёт до конца</span>}
         </div>
-        <span style={{ fontSize: 11, color: enabled ? "#f87171" : "#3d5068" }}>{enabled ? "▲ свернуть" : "▼ настроить"}</span>
+        <span style={{ fontSize: 11, color: enabled ? "#f87171" : "#3d5068", fontFamily: "monospace", letterSpacing: "0.06em" }}>{enabled ? "▲ свернуть" : "▼ настроить"}</span>
       </div>
 
       {enabled && (

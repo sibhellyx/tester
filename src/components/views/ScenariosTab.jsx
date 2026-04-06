@@ -77,8 +77,8 @@ export function ScenariosTab({ scenarios, loading, onRefresh }) {
   return (
     <div>
       <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:20}}>
-        <span style={{fontSize:11,color:"#3d5068",fontFamily:"monospace"}}>{scenarios.length} сценариев</span>
-        <button onClick={()=>setView("create")} style={S.btn("primary")}>
+        <span style={{fontSize:12,color:"#3d5068",fontFamily:"monospace"}}>{scenarios.length} сценариев</span>
+        <button onClick={()=>setView("create")} style={{...S.btn("primary"), minWidth:"199px", marginRight:"20px"}}>
           + НОВЫЙ СЦЕНАРИЙ
         </button>
       </div>
@@ -92,10 +92,10 @@ export function ScenariosTab({ scenarios, loading, onRefresh }) {
           <div key={sc.id} style={{...S.card,display:"flex",alignItems:"flex-start",justifyContent:"space-between",marginBottom:8,opacity:isThisStarting?0.7:1}}>
             <div style={{flex:1,minWidth:0}}>
               <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:4}}>
-                <span style={{fontSize:13,color:"#e2e8f0",fontFamily:"monospace",fontWeight:600}}>{sc.name}</span>
+                <span style={{fontSize:15,color:"#e2e8f0",fontFamily:"monospace",fontWeight:600}}>{sc.name}</span>
                 {hasChaos && <Pill color="#f87171" label="⚡ CHAOS" />}
               </div>
-              <div style={{fontSize:10,color:"#3d5068",fontFamily:"monospace",marginBottom:8}}>
+              <div style={{fontSize:12,color:"#3d5068",fontFamily:"monospace",marginBottom:8}}>
                 {sc.base_url} · {sc.stages?.length||0} этапов · {fmt.dur(sc.total_duration)}
               </div>
               <StageTimeline stages={sc.stages} />
@@ -105,7 +105,7 @@ export function ScenariosTab({ scenarios, loading, onRefresh }) {
                 style={{...S.btn(),color:isThisStarting?"#3d5068":"#4ade80",borderColor:isThisStarting?"#1a2535":"#4ade8030",cursor:isThisStarting?"not-allowed":"pointer",minWidth:"80px"}}>
                 {isThisStarting ? "WAIT..." : "▶ RUN"}
               </button>
-              <button onClick={()=>{setEditSc(sc);setView("edit");}} style={S.btn()}>✎</button>
+              <button onClick={()=>{setEditSc(sc);setView("edit");}} style={S.btn()}>✎ EDIT</button>
               <button onClick={()=>handleDelete(sc.id)} style={S.btn("danger")}>✕</button>
             </div>
           </div>

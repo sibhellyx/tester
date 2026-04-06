@@ -6,10 +6,11 @@ export function Badge({ status }) {
   const m = STATUS_META[status] || STATUS_META.pending;
   return (
     <span style={{
-      display: "inline-flex", alignItems: "center", gap: 5,
+      display: "inline-flex", alignItems: "center", justifyContent: "center", gap: 5,
       padding: "6px 10px", borderRadius: 4, fontSize: 11, fontWeight: 700,
       letterSpacing: "0.1em", color: m.color, background: m.bg,
       border: `1px solid ${m.color}30`, fontFamily: "monospace",
+      minWidth: "100px",
     }}>
       <span style={{ width: 5, height: 5, borderRadius: "50%", background: m.dot, boxShadow: status === "running" ? `0 0 6px ${m.dot}` : "none" }} />
       {status?.toUpperCase()}
