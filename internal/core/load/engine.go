@@ -10,7 +10,7 @@ import (
 
 // Shooter - интерфейс для выполнения запроса.
 type Shooter interface {
-	Shoot(requestModel models.TestRequest) models.CallResult
+	Shoot(ctx context.Context, requestModel models.TestRequest) models.CallResult
 }
 
 // Engine - структура, координирующая нагрузочное тестирование.

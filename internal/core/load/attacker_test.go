@@ -1,6 +1,7 @@
 package load
 
 import (
+	"context"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -31,7 +32,7 @@ func TestAttacker_Shoot_Success(t *testing.T) {
 		Body:   "",
 	}
 
-	result := attacker.Shoot(reqModel)
+	result := attacker.Shoot(context.Background(), reqModel)
 
 	// Проверки.
 	if result.Error != "" {
@@ -98,7 +99,7 @@ func TestAttacker_Shoot_BytesOutLogic(t *testing.T) {
 	// 5. Separator.
 	expectedBytes += 2
 
-	result := attacker.Shoot(reqModel)
+	result := attacker.Shoot(context.Background(), reqModel)
 
 	if result.BytesOut != expectedBytes {
 		t.Errorf("BytesOut calculation mismatch. Expected %d, got %d", expectedBytes, result.BytesOut)
@@ -130,7 +131,7 @@ func TestAttacker_Shoot_DefaultValidation(t *testing.T) {
 			defer server.Close()
 
 			req := models.TestRequest{Method: "GET", Path: server.URL}
-			result := attacker.Shoot(req)
+			result := attacker.Shoot(context.Background(), req)
 
 			if tt.shouldBeError {
 				if result.Error == "" {
@@ -162,7 +163,7 @@ func TestAttacker_Shoot_CustomValidation(t *testing.T) {
 			ExpectedStatusCodes: []int{404},
 		}
 
-		result := attacker.Shoot(req)
+		result := attacker.Shoot(context.Background(), req)
 		if result.Error != "" {
 			t.Errorf("Expected success when getting expected 404, got error: %s", result.Error)
 		}
@@ -184,7 +185,7 @@ func TestAttacker_Shoot_CustomValidation(t *testing.T) {
 			ExpectedStatusCodes: []int{200},
 		}
 
-		result := attacker.Shoot(req)
+		result := attacker.Shoot(context.Background(), req)
 		if result.Error == "" {
 			t.Error("Expected error because 500 is not in [200], but got success")
 		}
@@ -203,7 +204,7 @@ func TestAttacker_Shoot_CustomValidation(t *testing.T) {
 			ExpectedStatusCodes: []int{201},
 		}
 
-		result := attacker.Shoot(req)
+		result := attacker.Shoot(context.Background(), req)
 		if result.Error == "" {
 			t.Error("Expected error because 200 is not in [201]")
 		}
@@ -223,7 +224,7 @@ func TestAttacker_Shoot_Timeout(t *testing.T) {
 	attacker := NewAttacker(10 * time.Millisecond)
 
 	req := models.TestRequest{Method: "GET", Path: server.URL}
-	result := attacker.Shoot(req)
+	result := attacker.Shoot(context.Background(), req)
 
 	if result.Status != 0 {
 		t.Errorf("Expected status 0 on timeout, got %d", result.Status)
@@ -250,7 +251,7 @@ func TestAttacker_Shoot_InvalidRequest(t *testing.T) {
 		Path:   server.URL,
 	}
 
-	result := attacker.Shoot(req)
+	result := attacker.Shoot(context.Background(), req)
 
 	if result.Status != 0 {
 		t.Errorf("Expected status 0, got %d", result.Status)

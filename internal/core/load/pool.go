@@ -106,6 +106,9 @@ func (p *UserPool) KillAll() {
 
 	for _, vu := range users {
 		vu.cancel()
+	}
+
+	for _, vu := range users {
 		<-vu.done
 	}
 

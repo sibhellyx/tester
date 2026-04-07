@@ -42,7 +42,7 @@ func RunVirtualUser(
 			return
 		}
 
-		result := attacker.Shoot(*request)
+		result := attacker.Shoot(ctx, *request)
 		result.StageID = generator.CurrentStageID()
 
 		// При записи результата тоже проверяем ctx.

@@ -17,7 +17,7 @@ type MockAttacker struct {
 	calls    int
 }
 
-func (m *MockAttacker) Shoot(r models.TestRequest) models.CallResult {
+func (m *MockAttacker) Shoot(_ context.Context, r models.TestRequest) models.CallResult {
 	m.mu.Lock()
 	m.calls++
 	m.mu.Unlock()

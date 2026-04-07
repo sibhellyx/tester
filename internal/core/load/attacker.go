@@ -2,6 +2,7 @@ package load
 
 import (
 	"bytes"
+	"context"
 	"fmt"
 	"io"
 	"net/http"
@@ -35,7 +36,7 @@ func NewAttacker(timeout time.Duration) *Attacker {
 }
 
 // Shoot - функция выполняющая запрос.
-func (a *Attacker) Shoot(requestModel models.TestRequest) models.CallResult {
+func (a *Attacker) Shoot(ctx context.Context, requestModel models.TestRequest) models.CallResult {
 	// Подготовка к выполнению запроса.
 	// Подготовка тела запроса(при наличии) и подсчет отправленных данных.
 	// Reader для создания request.
@@ -49,7 +50,7 @@ func (a *Attacker) Shoot(requestModel models.TestRequest) models.CallResult {
 	// Подсчет байтов RequestLine.
 	bytesOut += int64(len(requestModel.Method) + len(requestModel.Path) + 12) // 12 = пробелы + "HTTP/1.1\r\n"
 	// Создание http.Request.
-	request, err := http.NewRequest(requestModel.Method, requestModel.Path, body)
+	request, err := http.NewRequestWithContext(ctx, requestModel.Method, requestModel.Path, body)
 	if err != nil {
 		return models.CallResult{
 			Status: 0,
