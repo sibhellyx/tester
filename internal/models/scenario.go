@@ -57,11 +57,17 @@ type ChaosParams struct {
 	Duration          int       `json:"duration"`         // Длительность сбоя (сек)
 
 	// Специфичные параметры (зависят от типа)
-	Delay       string `json:"delay,omitempty"`        // "100ms" (для network_delay)
-	Jitter      string `json:"jitter,omitempty"`       // "10ms" (для network_delay)
-	PacketLoss  int    `json:"packet_loss,omitempty"`  // 0-100 (для network_loss)
-	CPUQuota    int64  `json:"cpu_quota,omitempty"`    // -1..100000 (для resource_limit)
-	MemoryBytes int64  `json:"memory_bytes,omitempty"` // bytes (для resource_limit)
+	Delay      string  `json:"delay,omitempty"`       // "100ms" (для network_delay)
+	Jitter     string  `json:"jitter,omitempty"`      // "10ms" (для network_delay)
+	PacketLoss int     `json:"packet_loss,omitempty"` // 0-100 (для packet_loss)
+	// CPUPercent — ограничение CPU в процентах от одного ядра (для resource_limit).
+	// Допустимый диапазон: 1.0–100.0. Например, 25.0 = четверть ядра.
+	// Если не указан (0) — CPU не затрагивается.
+	CPUPercent float64 `json:"cpu_percent,omitempty"`
+	// MemoryMB — лимит памяти в мегабайтах (для resource_limit).
+	// Минимум 4 МБ. Например, 256 = 256 МБ.
+	// Если не указан (0) — память не затрагивается.
+	MemoryMB int64 `json:"memory_mb,omitempty"`
 }
 
 // StopConditions - параметры для остановки теста.
@@ -199,9 +205,20 @@ func validateStages(stages []Stage) (int, error) {
 				return -1, fmt.Errorf("stage #%d chaos #%d exceeds stage duration", i+1, j+1)
 			}
 
-			// Валидация типов (опционально).
+			// Валидация типо-специфичных параметров.
 			if chaos.Type == ChaosNetworkDelay && chaos.Delay == "" {
 				return -1, fmt.Errorf("stage #%d chaos #%d network_delay requires 'delay' param", i+1, j+1)
+			}
+			if chaos.Type == ChaosResource {
+				if chaos.CPUPercent == 0 && chaos.MemoryMB == 0 {
+					return -1, fmt.Errorf("stage #%d chaos #%d resource_limit requires cpu_percent or memory_mb", i+1, j+1)
+				}
+				if chaos.CPUPercent != 0 && (chaos.CPUPercent < 1.0 || chaos.CPUPercent > 100.0) {
+					return -1, fmt.Errorf("stage #%d chaos #%d cpu_percent must be between 1.0 and 100.0, got %.1f", i+1, j+1, chaos.CPUPercent)
+				}
+				if chaos.MemoryMB != 0 && chaos.MemoryMB < 4 {
+					return -1, fmt.Errorf("stage #%d chaos #%d memory_mb must be at least 4 MB, got %d", i+1, j+1, chaos.MemoryMB)
+				}
 			}
 		}
 	}

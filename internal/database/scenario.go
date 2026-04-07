@@ -319,7 +319,7 @@ func (r *ScenarioRepository) loadRequests(ctx context.Context, scenarioID string
 func (r *ScenarioRepository) loadChaosParams(ctx context.Context, scenarioID string, stageID int) ([]models.ChaosParams, error) {
 	const query = `
 		SELECT type, target_container_id, start_delay, duration,
-		       delay, jitter, packet_loss, cpu_quota, memory_bytes
+		       delay, jitter, packet_loss, cpu_percent, memory_mb
 		FROM chaos_params
 		WHERE scenario_id = $1 AND stage_id = $2
 		ORDER BY id ASC`
@@ -342,8 +342,8 @@ func (r *ScenarioRepository) loadChaosParams(ctx context.Context, scenarioID str
 			&c.Delay,
 			&c.Jitter,
 			&c.PacketLoss,
-			&c.CPUQuota,
-			&c.MemoryBytes,
+			&c.CPUPercent,
+			&c.MemoryMB,
 		); err != nil {
 			return nil, fmt.Errorf("scan chaos param: %w", err)
 		}
@@ -441,7 +441,7 @@ func insertChaosParams(ctx context.Context, tx txExecutor, scenarioID string, st
 	const q = `
 		INSERT INTO chaos_params
 		    (scenario_id, stage_id, type, target_container_id, start_delay, duration,
-		     delay, jitter, packet_loss, cpu_quota, memory_bytes)
+		     delay, jitter, packet_loss, cpu_percent, memory_mb)
 		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)`
 
 	for _, c := range events {
@@ -455,8 +455,8 @@ func insertChaosParams(ctx context.Context, tx txExecutor, scenarioID string, st
 			c.Delay,
 			c.Jitter,
 			c.PacketLoss,
-			c.CPUQuota,
-			c.MemoryBytes,
+			c.CPUPercent,
+			c.MemoryMB,
 		); err != nil {
 			return fmt.Errorf("insert chaos param: %w", err)
 		}

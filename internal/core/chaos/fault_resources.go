@@ -8,36 +8,67 @@ import (
 type ResourceLimitInjector struct {
 	client      ContainerOps
 	containerID string
-	cpuQuota    int64 // -1 = unlimit, 100000 = 1 CPU
-	memoryBytes int64 // 0 = no change
+	// Целевые значения (nil = не трогать).
+	cpuQuota    *int64
+	memoryBytes *int64
+	// Оригинальные значения, прочитанные перед Inject — нужны для Recover.
+	originalCPUQuota    *int64
+	originalMemory      *int64
+	originalMemorySwap  *int64
 }
 
 // NewResourceLimitInjector функция инициализации сбоя.
-func NewResourceLimitInjector(client ContainerOps, containerID string, cpu int64, mem int64) *ResourceLimitInjector {
+// nil для cpuQuota или memoryBytes означает "не трогать этот ресурс".
+func NewResourceLimitInjector(client ContainerOps, containerID string, cpuQuota *int64, memoryBytes *int64) *ResourceLimitInjector {
 	return &ResourceLimitInjector{
 		client:      client,
 		containerID: containerID,
-		cpuQuota:    cpu,
-		memoryBytes: mem,
+		cpuQuota:    cpuQuota,
+		memoryBytes: memoryBytes,
 	}
 }
 
 // Inject функция применяющая сбой.
+// Перед применением читает оригинальные лимиты для последующего восстановления.
 func (r *ResourceLimitInjector) Inject(ctx context.Context) error {
-	return r.client.UpdateResources(ctx, r.containerID, r.cpuQuota, r.memoryBytes)
+	origCPU, origMem, origSwap, err := r.client.GetContainerLimits(ctx, r.containerID)
+	if err != nil {
+		return fmt.Errorf("failed to read original limits: %w", err)
+	}
+
+	if r.cpuQuota != nil {
+		r.originalCPUQuota = &origCPU
+	}
+	if r.memoryBytes != nil {
+		r.originalMemory = &origMem
+		r.originalMemorySwap = &origSwap
+	}
+
+	// При установке нового лимита памяти Docker требует Memory <= MemorySwap.
+	// Передаём -1 (unlimited swap), чтобы ограничить только RAM.
+	var newSwap *int64
+	if r.memoryBytes != nil {
+		v := int64(-1)
+		newSwap = &v
+	}
+
+	return r.client.UpdateResources(ctx, r.containerID, r.cpuQuota, r.memoryBytes, newSwap)
 }
 
-// Recover функция восстанавливающая контейнер после сбоя.
+// Recover восстанавливает оригинальные лимиты, прочитанные перед Inject.
 func (r *ResourceLimitInjector) Recover(ctx context.Context) error {
-	// Восстанавливаем значения по умолчанию (-1 для CPU означает безлимит)
-	// Для памяти 0 означает "не обновлять", но чтобы снять лимит памяти,
-	// нужно знать изначальное значение или выставить очень большое.
-	// В Docker API для снятия лимита памяти обычно ставят 0 (если это swap) или -1 (недокументировано явно в go-sdk, но работает в API).
-	// Безопаснее всего вернуть -1 для CPUQuota.
-	return r.client.UpdateResources(ctx, r.containerID, -1, 0)
+	return r.client.UpdateResources(ctx, r.containerID, r.originalCPUQuota, r.originalMemory, r.originalMemorySwap)
 }
 
 // String функция для возврата типа сбоя.
 func (r *ResourceLimitInjector) String() string {
-	return fmt.Sprintf("Resource Limit CPU:%d MEM:%d on %s", r.cpuQuota, r.memoryBytes, r.containerID)
+	cpu := "unlimited"
+	if r.cpuQuota != nil {
+		cpu = fmt.Sprintf("%.1f%%", float64(*r.cpuQuota)/100000.0*100)
+	}
+	mem := "unlimited"
+	if r.memoryBytes != nil && *r.memoryBytes > 0 {
+		mem = fmt.Sprintf("%dMB", *r.memoryBytes/1024/1024)
+	}
+	return fmt.Sprintf("Resource Limit CPU:%s MEM:%s on %s", cpu, mem, r.containerID)
 }

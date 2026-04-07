@@ -91,25 +91,38 @@ func (c *DockerClient) ExecCommand(ctx context.Context, containerID string, cmd 
 }
 
 // UpdateResources меняет лимиты CPU/Memory на лету.
-func (c *DockerClient) UpdateResources(ctx context.Context, containerID string, cpuQuota int64, memoryBytes int64) error {
-	// Формируем структуру ресурсов.
-	resources := container.Resources{
-		CPUQuota: cpuQuota,
-		Memory:   memoryBytes,
+// nil означает "не трогать этот ресурс".
+// memorySwap: -1 = без лимита swap, 0 = не задавать, >0 = явный лимит.
+func (c *DockerClient) UpdateResources(ctx context.Context, containerID string, cpuQuota *int64, memoryBytes *int64, memorySwap *int64) error {
+	var resources container.Resources
+	if cpuQuota != nil {
+		resources.CPUQuota = *cpuQuota
+	}
+	if memoryBytes != nil {
+		resources.Memory = *memoryBytes
+	}
+	if memorySwap != nil {
+		resources.MemorySwap = *memorySwap
 	}
 
-	// Опции обновления.
-	updateConfig := client.ContainerUpdateOptions{
+	_, err := c.cli.ContainerUpdate(ctx, containerID, client.ContainerUpdateOptions{
 		Resources: &resources,
-	}
-
-	// Вызываем API.
-	_, err := c.cli.ContainerUpdate(ctx, containerID, updateConfig)
+	})
 	if err != nil {
 		return fmt.Errorf("failed to update resources for %s: %w", containerID, err)
 	}
 
 	return nil
+}
+
+// GetContainerLimits возвращает текущие лимиты ресурсов контейнера.
+func (c *DockerClient) GetContainerLimits(ctx context.Context, containerID string) (cpuQuota int64, memory int64, memorySwap int64, err error) {
+	result, err := c.cli.ContainerInspect(ctx, containerID, client.ContainerInspectOptions{})
+	if err != nil {
+		return 0, 0, 0, fmt.Errorf("failed to inspect container %s: %w", containerID, err)
+	}
+	hc := result.Container.HostConfig
+	return hc.CPUQuota, hc.Memory, hc.MemorySwap, nil
 }
 
 // GetStats возвращает статистику контейнера по загруженности.
