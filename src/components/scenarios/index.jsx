@@ -42,8 +42,22 @@ export function StageTimeline({ stages }) {
 // containers — список доступных Docker-контейнеров, загружается в ScenariosTab
 // и передаётся сюда чтобы пользователь мог выбрать контейнер из списка
 export function ChaosEventForm({ event, onChange, onRemove, containers }) {
-  console.log(containers)
-  const iStyle = { ...S.input, fontSize: 11 };
+  const sStyle = { ...S.input, fontSize: 11 };
+
+  const [startStr, setStartStr] = useState(event.start_delay > 0 ? String(event.start_delay) : "");
+  const [durStr, setDurStr] = useState(event.duration > 0 ? String(event.duration) : "");
+  const [cpuStr, setCpuStr] = useState(event.cpu_percent > 0 ? String(event.cpu_percent) : "");
+  const [memStr, setMemStr] = useState(event.memory_mb > 0 ? String(event.memory_mb) : "");
+  const [pktStr, setPktStr] = useState(event.packet_loss > 0 ? String(event.packet_loss) : "");
+
+  const numHandler = (raw, min, setter, field, parse = parseInt) => {
+    if (raw === "") { setter(""); onChange(field, 0); return; }
+    const num = parse(raw);
+    if (isNaN(num) || num < min) return;
+    setter(String(num));
+    onChange(field, num);
+  };
+
   return (
     <div style={{ background: "#060910", border: `1px solid ${CHAOS_COLORS[event.type] || "#1e2a3a"}30`, borderRadius: 6, padding: "12px 14px", marginBottom: 8 }}>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
@@ -51,10 +65,11 @@ export function ChaosEventForm({ event, onChange, onRemove, containers }) {
         <button onClick={onRemove} style={{ ...S.btn("danger"), padding: "2px 8px", fontSize: 10 }}>✕</button>
       </div>
 
-      <div style={{ display: "grid", gridTemplateColumns: "2fr 2fr 1fr 1fr", gap: 8, marginBottom: 8 }}>
+      {/* Тип + Контейнер */}
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginBottom: 8 }}>
         <div>
           <label style={S.label}>ТИП СБОЯ</label>
-          <select style={iStyle} value={event.type} onChange={(e) => onChange("type", e.target.value)}>
+          <select style={sStyle} value={event.type} onChange={(e) => onChange("type", e.target.value)}>
             <option value="component_shutdown">component_shutdown — убить контейнер</option>
             <option value="network_delay">network_delay — задержка сети</option>
             <option value="packet_loss">packet_loss — потеря пакетов</option>
@@ -64,66 +79,80 @@ export function ChaosEventForm({ event, onChange, onRemove, containers }) {
         <div>
           <label style={S.label}>КОНТЕЙНЕР</label>
           {containers && containers.length > 0 ? (
-            // Если контейнеры загружены — показываем select
-            <select
-              style={iStyle}
-              value={event.target_container || ""}
-              onChange={(e) => onChange("target_container", e.target.value)}
-            >
+            <select style={sStyle} value={event.target_container || ""} onChange={(e) => onChange("target_container", e.target.value)}>
               <option value="">— выберите контейнер —</option>
               {containers.map((ct) => (
-                <option key={ct.ID} value={ct.ID}>
-                  {ct.Name} · {ct.Image} · {ct.Status}
-                </option>
+                <option key={ct.ID} value={ct.ID}>{ct.Name} · {ct.Image} · {ct.Status}</option>
               ))}
             </select>
           ) : (
-            // Fallback — ручной ввод если контейнеры не загрузились или Docker недоступен
-            <input
-              style={iStyle}
-              value={event.target_container || ""}
-              onChange={(e) => onChange("target_container", e.target.value)}
-              placeholder="my-service"
-            />
+            <input style={sStyle} value={event.target_container || ""} onChange={(e) => onChange("target_container", e.target.value)} placeholder="my-service" />
           )}
-        </div>
-        <div>
-          <label style={S.label}>СТАРТ (сек)</label>
-          <input style={iStyle} type="number" min={0} value={event.start_delay ?? 0} onChange={(e) => onChange("start_delay", +e.target.value)} />
-        </div>
-        <div>
-          <label style={S.label}>ДЛИТ. (сек)</label>
-          <input style={iStyle} type="number" min={1} value={event.duration ?? 10} onChange={(e) => onChange("duration", +e.target.value)} />
         </div>
       </div>
 
+      {/* Старт + Длительность */}
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginBottom: 8 }}>
+        <div>
+          <label style={S.label}>СТАРТ СБОЯ (секунд от начала этапа)</label>
+          <input style={S.input} type="number" min={0} value={startStr} placeholder="0"
+            onFocus={(e) => e.target.select()}
+            onChange={(e) => numHandler(e.target.value, 0, setStartStr, "start_delay")} />
+        </div>
+        <div>
+          <label style={S.label}>ДЛИТЕЛЬНОСТЬ СБОЯ (секунд)</label>
+          <input style={S.input} type="number" min={1} value={durStr} placeholder="10"
+            onFocus={(e) => e.target.select()}
+            onChange={(e) => numHandler(e.target.value, 1, setDurStr, "duration")} />
+        </div>
+      </div>
+
+      {/* Тип-специфичные параметры */}
       {event.type === "network_delay" && (
         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
           <div>
             <label style={S.label}>DELAY (напр. "100ms")</label>
-            <input style={iStyle} value={event.delay || ""} onChange={(e) => onChange("delay", e.target.value)} placeholder="100ms" />
+            <input style={S.input} value={event.delay || ""} onChange={(e) => onChange("delay", e.target.value)} placeholder="100ms" />
           </div>
           <div>
             <label style={S.label}>JITTER (напр. "10ms")</label>
-            <input style={iStyle} value={event.jitter || ""} onChange={(e) => onChange("jitter", e.target.value)} placeholder="10ms" />
+            <input style={S.input} value={event.jitter || ""} onChange={(e) => onChange("jitter", e.target.value)} placeholder="10ms" />
           </div>
         </div>
       )}
       {event.type === "packet_loss" && (
-        <div style={{ maxWidth: 140 }}>
-          <label style={S.label}>ПОТЕРЯ ПАКЕТОВ (%)</label>
-          <input style={iStyle} type="number" min={0} max={100} value={event.packet_loss ?? 10} onChange={(e) => onChange("packet_loss", +e.target.value)} />
+        <div style={{ maxWidth: 200 }}>
+          <label style={S.label}>ПОТЕРЯ ПАКЕТОВ (%, 0–100)</label>
+          <input style={S.input} type="number" min={0} max={100} value={pktStr} placeholder="10"
+            onFocus={(e) => e.target.select()}
+            onChange={(e) => {
+              const raw = e.target.value;
+              if (raw === "") { setPktStr(""); onChange("packet_loss", 0); return; }
+              const num = parseInt(raw);
+              if (isNaN(num) || num < 0 || num > 100) return;
+              setPktStr(String(num)); onChange("packet_loss", num);
+            }} />
         </div>
       )}
       {event.type === "resource_limit" && (
         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
           <div>
-            <label style={S.label}>CPU QUOTA (−1..100000)</label>
-            <input style={iStyle} type="number" value={event.cpu_quota ?? 50000} onChange={(e) => onChange("cpu_quota", +e.target.value)} />
+            <label style={S.label}>CPU (% от ядра, 1–100, 0 = не ограничивать)</label>
+            <input style={S.input} type="number" min={0} max={100} step={0.1} value={cpuStr} placeholder="25"
+              onFocus={(e) => e.target.select()}
+              onChange={(e) => {
+                const raw = e.target.value;
+                if (raw === "") { setCpuStr(""); onChange("cpu_percent", 0); return; }
+                const num = parseFloat(raw);
+                if (isNaN(num) || num < 0 || num > 100) return;
+                setCpuStr(raw); onChange("cpu_percent", num);
+              }} />
           </div>
           <div>
-            <label style={S.label}>MEMORY LIMIT (bytes)</label>
-            <input style={iStyle} type="number" value={event.memory_bytes ?? 134217728} onChange={(e) => onChange("memory_bytes", +e.target.value)} placeholder="134217728 = 128MB" />
+            <label style={S.label}>MEMORY (МБ, мин. 4, 0 = не ограничивать)</label>
+            <input style={S.input} type="number" min={0} value={memStr} placeholder="256"
+              onFocus={(e) => e.target.select()}
+              onChange={(e) => numHandler(e.target.value, 0, setMemStr, "memory_mb")} />
           </div>
         </div>
       )}
@@ -624,9 +653,13 @@ export function ScenarioForm({ initial, onSave, onCancel, containers }) {
       if (wSum <= 0) return setErr(`Этап ${i + 1}: суммарная вероятность запросов должна быть > 0`);
       for (let j = 0; j < (st.chaos_events || []).length; j++) {
         const ch = st.chaos_events[j];
-        if (!ch.target_container) return setErr(`Этап ${i + 1}, сбой ${j + 1}: укажите ID контейнера`);
-        if (ch.start_delay + ch.duration > st.duration) return setErr(`Этап ${i + 1}, сбой ${j + 1}: выходит за пределы этапа (${ch.start_delay}+${ch.duration} > ${st.duration})`);
-        if (ch.type === "network_delay" && !ch.delay) return setErr(`Этап ${i + 1}, сбой ${j + 1}: network_delay требует поле delay`);
+        const loc = `Этап ${i + 1}, сбой ${j + 1}`;
+        if (!ch.target_container) return setErr(`${loc}: поле "Контейнер" не может быть пустым`);
+        if (!ch.duration || ch.duration <= 0) return setErr(`${loc}: поле "Длительность сбоя" не может быть пустым`);
+        if (ch.start_delay + ch.duration > st.duration) return setErr(`${loc}: сбой выходит за пределы этапа (${ch.start_delay}+${ch.duration} > ${st.duration}с)`);
+        if (ch.type === "network_delay" && !ch.delay) return setErr(`${loc}: поле "Delay" не может быть пустым`);
+        if (ch.type === "network_delay" && !ch.jitter) return setErr(`${loc}: поле "Jitter" не может быть пустым`);
+        if (ch.type === "resource_limit" && !ch.cpu_percent && !ch.memory_mb) return setErr(`${loc}: заполните хотя бы одно поле — CPU (%) или Memory (МБ)`);
       }
     }
     if (sc.stop_conditions) {
